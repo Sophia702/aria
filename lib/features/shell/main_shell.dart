@@ -1,0 +1,57 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/theme/app_theme.dart';
+import '../../widgets/floating_nav.dart';
+import '../home/home_screen.dart';
+import '../profile/profile_screen.dart';
+import '../progress/progress_screen.dart';
+import '../session/start_walk.dart';
+import '../settings/settings_screen.dart';
+
+/// Hosts the four bottom-nav destinations under a shared warm background with
+/// the floating nav overlaid. The centre nav button starts a session.
+///
+/// Tab pages render plain scrollable content (with bottom padding to clear the
+/// nav); the shell owns the background, SafeArea, and nav.
+class MainShell extends ConsumerStatefulWidget {
+  const MainShell({super.key});
+
+  @override
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> {
+  int _index = 0;
+
+  static const _pages = [
+    HomeScreen(),
+    ProgressScreen(),
+    ProfileScreen(),
+    SettingsScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: AppTheme.pageBackground(
+        child: Stack(
+          children: [
+            SafeArea(
+              bottom: false,
+              child: IndexedStack(index: _index, children: _pages),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: FloatingNav(
+                index: _index,
+                onSelect: (i) => setState(() => _index = i),
+                onStart: () => startWalk(context, ref),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

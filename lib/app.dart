@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
-import 'features/home/home_screen.dart';
+import 'features/shell/main_shell.dart';
 
-/// Root widget. M1 uses a plain home route; a full router with the floating
-/// bottom nav (Home · Progress · Start · Profile · Settings) arrives in M2.
+/// Root widget. Boots into the main shell (Home · Progress · Start · Profile ·
+/// Settings). Onboarding (01–05) will gate this on first run in a later round.
 class AriaApp extends StatelessWidget {
   const AriaApp({super.key});
 
@@ -14,7 +14,7 @@ class AriaApp extends StatelessWidget {
       title: 'aria',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const HomeScreen(),
+      home: const MainShell(),
     );
   }
 }
