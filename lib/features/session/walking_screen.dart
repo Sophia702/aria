@@ -24,7 +24,7 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
   bool _interventionOpen = false;
 
   Color _ringColor(FogState s) => switch (s) {
-        FogState.normal => AppColors.indigo,
+        FogState.normal => AppColors.connected,
         FogState.preFreeze => AppColors.cue,
         FogState.freezing => AppColors.notConnected,
       };
@@ -127,7 +127,7 @@ class _StateBanner extends StatelessWidget {
           Icon(Icons.circle, size: 12, color: color),
           const SizedBox(width: AppSpacing.sm),
           Text(label,
-              style: AppType.label.copyWith(color: AppColors.navy)),
+              style: AppType.label.copyWith(color: AppColors.ink)),
         ],
       ),
     );
@@ -165,7 +165,7 @@ class _NowPlayingStrip extends StatelessWidget {
           ),
           const Spacer(),
           Icon(playing ? Icons.graphic_eq : Icons.pause,
-              color: AppColors.indigo, size: 26),
+              color: AppColors.clay, size: 26),
         ],
       ),
     );

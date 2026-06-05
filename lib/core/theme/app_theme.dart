@@ -12,9 +12,9 @@ class AppTheme {
 
   static ThemeData get light {
     final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.indigo,
-      primary: AppColors.navy,
-      secondary: AppColors.indigo,
+      seedColor: AppColors.clay,
+      primary: AppColors.ink,
+      secondary: AppColors.lavender,
       surface: AppColors.card,
       brightness: Brightness.light,
     );
@@ -34,7 +34,7 @@ class AppTheme {
         bodyLarge: AppType.body,
         labelLarge: AppType.label,
       ),
-      iconTheme: const IconThemeData(color: AppColors.navy, size: 26),
+      iconTheme: const IconThemeData(color: AppColors.ink, size: 26),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.card,
         surfaceTintColor: Colors.transparent,
