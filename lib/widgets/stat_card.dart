@@ -11,7 +11,7 @@ class StatCard extends StatelessWidget {
     required this.icon,
     required this.value,
     required this.caption,
-    this.accent = AppColors.clay,
+    this.accent = AppColors.primary,
   });
 
   final IconData icon;

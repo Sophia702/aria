@@ -22,7 +22,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     'age': '68',
     'meds': 'Levodopa, Carbidopa',
     'clinician': 'Dr. Alvarez',
-    'contactName': 'Sarah (daughter)',
+    'contactType': 'Daughter',
+    'contactName': 'Sarah',
     'contactPhone': '+1 555 0142',
   };
 
@@ -82,7 +83,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ]),
         const SizedBox(height: AppSpacing.md),
         _Section(title: 'Emergency contact', children: [
-          _Field(label: 'Contact name', controller: _c['contactName']!),
+          _Field(label: 'Relationship', controller: _c['contactType']!),
+          _Field(label: 'Name', controller: _c['contactName']!),
           _Field(
               label: 'Phone', controller: _c['contactPhone']!, number: true),
         ]),

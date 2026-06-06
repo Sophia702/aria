@@ -9,6 +9,7 @@ import '../../services/session/session_state.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/pulse_ring.dart';
 import 'intervention_screen.dart';
+import 'summary_screen.dart';
 
 /// Screen 12 — the live walk. Full-screen, no nav. The cadence ring recolours
 /// with the gait state; the now-playing strip shows the continuous cue. When
@@ -32,13 +33,15 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
   String _stateLabel(FogState s) => switch (s) {
         FogState.normal => 'In rhythm',
         FogState.preFreeze => 'Steady your steps',
-        FogState.freezing => 'Freeze detected',
+        FogState.freezing => 'Pause a moment',
       };
 
   Future<void> _endWalk() async {
     await ref.read(sessionControllerProvider.notifier).endSession();
     if (!mounted) return;
-    Navigator.of(context).popUntil((r) => r.isFirst);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const SummaryScreen()),
+    );
   }
 
   @override
@@ -165,7 +168,7 @@ class _NowPlayingStrip extends StatelessWidget {
           ),
           const Spacer(),
           Icon(playing ? Icons.graphic_eq : Icons.pause,
-              color: AppColors.clay, size: 26),
+              color: AppColors.primary, size: 26),
         ],
       ),
     );

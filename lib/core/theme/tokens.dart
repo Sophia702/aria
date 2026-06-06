@@ -2,49 +2,49 @@ import 'package:flutter/material.dart';
 
 /// Central design tokens for aria.
 ///
-/// EVERYTHING tunable about the look lives here. Warm, premium, minimal — a
-/// soft cream background, white cards that lift off the page, a clay primary
-/// accent with a muted lavender secondary, and a small set of soft accent
-/// colours for stat cards. Light mode only.
+/// EVERYTHING tunable about the look lives here. Premium, calm, minimal — a
+/// soft neutral-sage background, white cards that lift off the page, a deep
+/// forest-green primary with a plum secondary, and sage / rose / gold accents
+/// for variety. Light mode only.
 class AppColors {
   AppColors._();
 
-  // Page background — warm cream vertical gradient.
-  static const Color bgTop = Color(0xFFF8F3EB);
-  static const Color bgBottom = Color(0xFFEFE7DA);
+  // Page background — soft neutral paper with a faint sage warmth.
+  static const Color bgTop = Color(0xFFF4F3ED);
+  static const Color bgBottom = Color(0xFFE8EBE1);
 
-  // Text (warm near-black through muted browns).
-  static const Color ink = Color(0xFF2C2823); // primary text, active nav
-  static const Color inkSoft = Color(0xFF6E635A); // body / muted text
-  static const Color label = Color(0xFF9C9286); // small labels
+  // Text (deep green-charcoal through muted sage-greys).
+  static const Color ink = Color(0xFF26312B); // primary text, active nav
+  static const Color inkSoft = Color(0xFF5C6A61); // body / muted text
+  static const Color label = Color(0xFF97A096); // small labels
 
-  // Primary accent — soft clay / terracotta.
-  static const Color clay = Color(0xFFC77B57);
-  static const Color clayDeep = Color(0xFFB0623F);
+  // Primary accent — deep forest green.
+  static const Color primary = Color(0xFF2F5D4A);
+  static const Color primaryDeep = Color(0xFF234A3B);
 
-  // Secondary accent — muted lavender.
-  static const Color lavender = Color(0xFF8E86C9);
-  static const Color lavenderDeep = Color(0xFF6F66B0);
+  // Secondary accent — plum.
+  static const Color plum = Color(0xFF6E4C66);
+  static const Color plumDeep = Color(0xFF553B4F);
 
-  // Extra soft accents (stat cards, variety — like the inspo task apps).
-  static const Color sage = Color(0xFF6FA083);
-  static const Color amber = Color(0xFFE0A93C);
-  static const Color blush = Color(0xFFD78FA0);
-  static const Color sky = Color(0xFF6E97C9);
+  // Extra soft accents (stat cards, variety).
+  static const Color sage = Color(0xFF7BA38C);
+  static const Color rose = Color(0xFFC68793);
+  static const Color amber = Color(0xFFC99A4A); // warm gold
+  static const Color sky = Color(0xFF6E90B0);
 
-  // Cards + warm surfaces.
+  // Cards + surfaces.
   static const Color card = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFF0E8DA); // warm tan chip
-  static const Color surfaceDeep = Color(0xFFE6DAC7);
+  static const Color surface = Color(0xFFECEEE6); // sage-tinted chip
+  static const Color surfaceDeep = Color(0xFFDBE0D5);
 
   // Status — always paired with an icon + label (colour is never the only cue).
-  static const Color connected = Color(0xFF5E9C76); // green
-  static const Color notConnected = Color(0xFFD2553B); // red-orange
-  static const Color cue = Color(0xFFE0A93C); // amber — cue / pre-freeze
+  static const Color connected = Color(0xFF4E9E78); // green
+  static const Color notConnected = Color(0xFFC65B4E); // red
+  static const Color cue = Color(0xFFC99A4A); // gold — cue / pre-freeze
 
-  // Soft warm wash for the live walking screen.
-  static const Color walkingWashTop = Color(0xFFF5EFE4);
-  static const Color walkingWashBottom = Color(0xFFECE1CF);
+  // Soft wash for the live walking screen.
+  static const Color walkingWashTop = Color(0xFFEFF2EA);
+  static const Color walkingWashBottom = Color(0xFFE2E9DC);
 
   static const LinearGradient pageGradient = LinearGradient(
     begin: Alignment.topCenter,
@@ -56,14 +56,14 @@ class AppColors {
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [clay, clayDeep],
+    colors: [primary, primaryDeep],
   );
 
-  /// Secondary gradient (lavender accent cards).
-  static const LinearGradient lavenderGradient = LinearGradient(
+  /// Secondary gradient (plum accent cards).
+  static const LinearGradient plumGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [lavender, lavenderDeep],
+    colors: [plum, plumDeep],
   );
 
   static const LinearGradient walkingWash = LinearGradient(
@@ -92,16 +92,16 @@ class AppSpacing {
   static const double xxl = 48;
 
   /// Bottom padding tab content reserves so the floating nav doesn't cover it.
-  static const double navClearance = 104;
+  static const double navClearance = 122;
 }
 
 class AppShadows {
   AppShadows._();
 
-  /// White-card lift, warm-tinted: 0 8px 22px rgba(74,60,40,.10).
+  /// White-card lift, soft and warm: 0 8px 22px rgba(38,49,43,.10).
   static const List<BoxShadow> card = [
     BoxShadow(
-      color: Color(0x1A4A3C28),
+      color: Color(0x1A26312B),
       blurRadius: 22,
       offset: Offset(0, 8),
     ),
@@ -110,7 +110,7 @@ class AppShadows {
   /// Stronger lift for the raised start button / floating nav.
   static const List<BoxShadow> raised = [
     BoxShadow(
-      color: Color(0x33806A4A),
+      color: Color(0x33394A40),
       blurRadius: 26,
       offset: Offset(0, 10),
     ),

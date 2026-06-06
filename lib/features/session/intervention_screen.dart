@@ -53,7 +53,7 @@ class InterventionScreen extends ConsumerWidget {
                         icon: Icons.self_improvement,
                         title: 'Breathing exercise',
                         subtitle: 'Slow, guided breaths',
-                        color: AppColors.lavender,
+                        color: AppColors.plum,
                         onTap: () => _choose(
                             context, ref, InterventionAction.breathing),
                       ),

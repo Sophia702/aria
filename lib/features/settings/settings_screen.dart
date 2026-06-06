@@ -32,11 +32,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         Text('Settings', style: AppType.h1),
         const SizedBox(height: AppSpacing.md),
         _Section(title: 'Audio preferences', children: [
-          _StepperRow(
-            label: 'Cue volume',
-            value: '$_volume%',
-            onMinus: _volume > 0 ? () => setState(() => _volume -= 10) : null,
-            onPlus: _volume < 100 ? () => setState(() => _volume += 10) : null,
+          _VolumeControl(
+            value: _volume,
+            onChanged: (v) => setState(() => _volume = v.clamp(0, 100)),
           ),
           const Divider(height: AppSpacing.lg, color: AppColors.surfaceDeep),
           _StepperRow(
@@ -65,7 +63,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: 'Daily reminders',
             trailing: Switch(
               value: _reminders,
-              activeThumbColor: AppColors.clay,
+              activeThumbColor: AppColors.primary,
               onChanged: (v) => setState(() => _reminders = v),
             ),
             onTap: () => setState(() => _reminders = !_reminders),
@@ -94,6 +92,58 @@ class _Section extends StatelessWidget {
           ...children,
         ],
       ),
+    );
+  }
+}
+
+/// Volume: a slider PLUS -/+ buttons. The slider is the quick visual control;
+/// the buttons give a tremor-friendly discrete tap path (the slider's drag is
+/// the only gesture we allow, and only because it's backed by the buttons).
+class _VolumeControl extends StatelessWidget {
+  const _VolumeControl({required this.value, required this.onChanged});
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('Cue volume', style: AppType.h2.copyWith(fontSize: 18)),
+            const Spacer(),
+            Text('$value%', style: AppType.label),
+          ],
+        ),
+        Row(
+          children: [
+            _RoundBtn(
+                icon: Icons.remove,
+                onTap: value > 0 ? () => onChanged(value - 10) : null),
+            Expanded(
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: AppColors.primary,
+                  inactiveTrackColor: AppColors.surfaceDeep,
+                  thumbColor: AppColors.primary,
+                  overlayColor: AppColors.primary.withValues(alpha: 0.15),
+                  trackHeight: 6,
+                ),
+                child: Slider(
+                  value: value.toDouble(),
+                  max: 100,
+                  divisions: 20,
+                  onChanged: (v) => onChanged(v.round()),
+                ),
+              ),
+            ),
+            _RoundBtn(
+                icon: Icons.add,
+                onTap: value < 100 ? () => onChanged(value + 10) : null),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -184,7 +234,7 @@ class _RowTile extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: A11y.minTapTarget),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.clay, size: 24),
+            Icon(icon, color: AppColors.primary, size: 24),
             const SizedBox(width: AppSpacing.md),
             Expanded(child: Text(title, style: AppType.h2.copyWith(fontSize: 18))),
             trailing,

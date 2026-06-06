@@ -18,8 +18,9 @@ class MockFogModel implements FogModel {
   final _rng = Random(11);
   int _step = 0;
 
-  // One demo cycle (in steps ≈ seconds): calm, then a freeze episode, repeat.
-  static const int _normalSteps = 8;
+  // One demo cycle (in steps ≈ seconds): a long calm stretch, then a short
+  // freeze episode, repeat. Kept calm so the demo isn't constantly interrupted.
+  static const int _normalSteps = 18;
   static const int _preFreezeSteps = 2;
   static const int _freezingSteps = 3;
   static const int _cycle = _normalSteps + _preFreezeSteps + _freezingSteps;
