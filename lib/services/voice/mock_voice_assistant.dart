@@ -1,55 +1,40 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'voice_assistant.dart';
 
-/// Dev/demo voice agent.
-///
-/// Doesn't touch the microphone or TTS engine (those arrive in M3 with
-/// `speech_to_text` + `flutter_tts`). Instead it lets the app inject intents
-/// programmatically via [emit] — e.g. from a debug "🎤 say 'start walk'" button —
-/// so voice-driven navigation can be wired and demoed now. [speak] logs.
+/// Dev/demo voice agent — no microphone or TTS engine. [speak] logs, and
+/// [listenOnce] returns phrases queued via [inject] (e.g. from a debug
+/// "say…" button), so the voice loop can be exercised on an emulator.
 class MockVoiceAssistant implements VoiceAssistant {
-  final _intents = StreamController<VoiceIntent>.broadcast();
-  bool _enabled = false;
-  ScreenDescriptor? _current;
+  final Queue<String> _queued = Queue<String>();
+  final List<String> spoken = [];
 
   @override
-  bool get enabled => _enabled;
+  bool get isAvailable => true;
 
   @override
-  set enabled(bool value) => _enabled = value;
-
-  @override
-  Stream<VoiceIntent> get intents => _intents.stream;
-
-  @override
-  Future<void> init() async {}
+  Future<bool> init() async => true;
 
   @override
   Future<void> speak(String text) async {
+    spoken.add(text);
     // ignore: avoid_print
     print('[aria voice] $text');
   }
 
   @override
-  Future<void> listen() async {
-    // No-op for the mock; real STT begins capture here.
+  Future<String?> listenOnce({Duration listenFor = const Duration(seconds: 6)}) async {
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return _queued.isEmpty ? null : _queued.removeFirst();
   }
 
   @override
-  void describeScreen(ScreenDescriptor descriptor) {
-    _current = descriptor;
-    if (_enabled) speak(descriptor.spokenSummary);
-  }
+  Future<void> stopListening() async {}
 
-  /// Test/demo hook: simulate the user saying something that maps to [intent].
-  void emit(VoiceIntent intent) => _intents.add(intent);
-
-  /// The screen the agent currently believes is showing.
-  ScreenDescriptor? get currentScreen => _current;
+  /// Test/demo hook: queue a phrase the next [listenOnce] will "hear".
+  void inject(String phrase) => _queued.add(phrase);
 
   @override
-  Future<void> dispose() async {
-    await _intents.close();
-  }
+  Future<void> dispose() async {}
 }
