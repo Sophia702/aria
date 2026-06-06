@@ -5,7 +5,9 @@ import 'core/theme/app_theme.dart';
 import 'data/persistence/app_prefs.dart';
 import 'features/onboarding/onboarding_flow.dart';
 import 'features/shell/main_shell.dart';
+import 'providers/providers.dart';
 import 'widgets/aria_logo.dart';
+import 'widgets/voice_overlay.dart';
 
 /// Root widget. Shows onboarding on first run, otherwise the main shell.
 class AriaApp extends StatelessWidget {
@@ -18,6 +20,8 @@ class AriaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       scrollBehavior: const NoStretchScrollBehavior(),
+      navigatorKey: navigatorKey,
+      builder: (context, child) => VoiceOverlay(child: child ?? const SizedBox()),
       home: const _Boot(),
     );
   }

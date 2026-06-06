@@ -9,6 +9,7 @@ import '../../providers/providers.dart';
 import '../../services/sensors/sensor_source.dart';
 import '../../widgets/aria_logo.dart';
 import '../../widgets/pulse_ring.dart';
+import '../../widgets/voice_toggle_button.dart';
 import '../session/start_walk.dart';
 
 /// Screen 06 — Home tab. Logo, greeting, the pulsing start-walk ring, and a
@@ -26,7 +27,13 @@ class HomeScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AriaLogo(size: 38),
+          Row(
+            children: const [
+              AriaLogo(size: 38),
+              Spacer(),
+              VoiceToggleButton(),
+            ],
+          ),
           const SizedBox(height: AppSpacing.xl),
           Text('Welcome,', style: AppType.h1),
           Text(name, style: AppType.display),

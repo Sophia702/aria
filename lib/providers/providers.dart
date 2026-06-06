@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/cue/cue_engine.dart';
@@ -10,7 +11,16 @@ import '../services/sensors/mock_sensor_source.dart';
 import '../services/sensors/sensor_source.dart';
 import '../services/session/session_controller.dart';
 import '../services/session/session_state.dart';
+import '../services/voice/keyword_voice_assistant.dart';
 import '../services/voice/mock_voice_assistant.dart';
+import '../services/voice/voice_assistant.dart';
+
+/// Global navigator key so the voice agent can drive navigation from outside the
+/// widget tree. Wired to MaterialApp.navigatorKey.
+final navigatorKey = GlobalKey<NavigatorState>();
+
+/// Set true to use the mic-free MockVoiceAssistant (e.g. on an emulator).
+const bool kUseMockVoice = false;
 
 /// Dependency wiring. To go from mock -> real (M4), change ONLY the concrete
 /// type constructed here — nothing in the UI or session logic changes:
@@ -42,12 +52,24 @@ final interventionManagerProvider = Provider<InterventionManager>((ref) {
   return i;
 });
 
-/// Concrete type exposed so the debug "simulate voice" hook (emit) is reachable.
-final voiceAssistantProvider = Provider<MockVoiceAssistant>((ref) {
-  final v = MockVoiceAssistant();
+final voiceAssistantProvider = Provider<VoiceAssistant>((ref) {
+  final VoiceAssistant v =
+      kUseMockVoice ? MockVoiceAssistant() : KeywordVoiceAssistant();
   ref.onDispose(() => v.dispose());
   return v;
 });
 
 final sessionControllerProvider =
     NotifierProvider<SessionController, SessionSnapshot>(SessionController.new);
+
+/// Active bottom-nav tab index (Home/Progress/Profile/Settings). Lifted out of
+/// MainShell so the voice agent can switch tabs.
+class NavIndexController extends Notifier<int> {
+  @override
+  int build() => 0;
+  void set(int i) => state = i;
+}
+
+final navIndexProvider = NotifierProvider<NavIndexController, int>(
+  NavIndexController.new,
+);

@@ -8,6 +8,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/models/sensor_status.dart';
 import '../../data/persistence/app_prefs.dart';
 import '../../providers/providers.dart';
+import '../../services/voice/voice_controller.dart';
 import '../../widgets/aria_logo.dart';
 import '../../widgets/body_view.dart';
 import '../../widgets/gradient_button.dart';
@@ -71,10 +72,15 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   Future<void> _finish() async {
     await AppPrefs.setOnboarded();
+    await AppPrefs.setVoiceEnabled(_speechAssist);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const MainShell()),
     );
+    // Start the voice agent now that we're on Home (it narrates from here).
+    if (_speechAssist) {
+      ref.read(voiceControllerProvider.notifier).enable();
+    }
   }
 
   void _startBaseline() {
@@ -139,7 +145,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         const SizedBox(height: AppSpacing.xl),
         _SpeechAssistToggle(
           value: _speechAssist,
-          onChanged: (v) => setState(() => _speechAssist = v),
+          onChanged: (v) {
+            setState(() => _speechAssist = v);
+            AppPrefs.setVoiceEnabled(v);
+          },
         ),
         const Spacer(),
         GradientButton(

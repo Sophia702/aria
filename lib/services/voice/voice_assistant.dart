@@ -1,55 +1,29 @@
-/// Intents the voice agent can recognise (keyword matching for MVP; richer NLU
-/// later). Kept small and explicit so the mapping to actions is obvious.
-enum VoiceIntent {
-  startWalk,
-  endWalk,
-  imOkay,
-  breathing,
-  callEmergency,
-  callSupport,
-  goHome,
-  goProgress,
-  unknown,
-}
-
-/// Describes the current screen so the agent can narrate it and offer actions.
-class ScreenDescriptor {
-  final String screenId;
-  final String spokenSummary;
-  final List<VoiceIntent> availableIntents;
-  const ScreenDescriptor({
-    required this.screenId,
-    required this.spokenSummary,
-    this.availableIntents = const [],
-  });
-}
-
 /// Seam #5 — the hands-free "aria agent".
 ///
-/// Operates the whole app by voice: speech-to-text -> intent -> action, with
-/// text-to-speech narration. A FIRST-CLASS but SEPARABLE layer — the core walk
-/// pipeline never depends on it.
+/// Primitives the [VoiceController] orchestrates into a narrate → listen → act
+/// loop. A FIRST-CLASS but SEPARABLE layer — the core walk pipeline never
+/// depends on it.
 ///
 /// Implementations:
-///   - MockVoiceAssistant   : dev/demo — inject intents programmatically.
-///   - KeywordVoiceAssistant : speech_to_text + flutter_tts (M3).
+///   - KeywordVoiceAssistant : speech_to_text + flutter_tts (real device).
+///   - MockVoiceAssistant    : dev/demo — speak() logs, listenOnce() returns
+///                              programmatically-injected phrases.
 abstract class VoiceAssistant {
-  bool get enabled;
-  set enabled(bool value);
+  /// Whether STT/TTS initialised successfully (mic permission granted, engine ok).
+  bool get isAvailable;
 
-  Future<void> init();
+  /// Initialise STT + TTS. Returns availability.
+  Future<bool> init();
 
-  /// Speak text to the user (TTS).
+  /// Speak [text] and complete when finished talking.
   Future<void> speak(String text);
 
-  /// Start listening for a command (STT).
-  Future<void> listen();
+  /// Listen for a single utterance; returns the recognised text (or null on
+  /// silence/timeout). [listenFor] caps how long to wait.
+  Future<String?> listenOnce({Duration listenFor});
 
-  /// Stream of recognised intents.
-  Stream<VoiceIntent> get intents;
-
-  /// Tell the agent which screen is showing so it can narrate + offer actions.
-  void describeScreen(ScreenDescriptor descriptor);
+  /// Stop any in-progress listening immediately.
+  Future<void> stopListening();
 
   Future<void> dispose();
 }

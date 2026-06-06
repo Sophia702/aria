@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/a11y/a11y.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/persistence/app_prefs.dart';
+import '../../services/voice/voice_controller.dart';
 
 /// Screen 10 — Settings. Audio preferences, sensor configuration, notifications.
 ///
@@ -22,6 +24,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _volume = 80; // percent
   int _tempo = 108; // bpm
   bool _reminders = true;
+
+  void _setVoice(bool v) {
+    final c = ref.read(voiceControllerProvider.notifier);
+    if (v) {
+      c.enable();
+    } else {
+      c.disable();
+    }
+    AppPrefs.setVoiceEnabled(v);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +79,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onChanged: (v) => setState(() => _reminders = v),
             ),
             onTap: () => setState(() => _reminders = !_reminders),
+          ),
+        ]),
+        const SizedBox(height: AppSpacing.md),
+        _Section(title: 'Accessibility', children: [
+          _RowTile(
+            icon: Icons.mic_rounded,
+            title: 'Speech assist (hands-free)',
+            trailing: Switch(
+              value: ref.watch(voiceControllerProvider).enabled,
+              activeThumbColor: AppColors.primary,
+              onChanged: (v) => _setVoice(v),
+            ),
+            onTap: () => _setVoice(!ref.read(voiceControllerProvider).enabled),
           ),
         ]),
       ],

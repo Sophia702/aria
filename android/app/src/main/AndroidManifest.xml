@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Speech-assist mode: microphone for on-device speech recognition. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="aria"
         android:name="${applicationName}"
@@ -46,6 +48,13 @@
         <intent>
             <action android:name="android.intent.action.DIAL"/>
             <data android:scheme="tel"/>
+        </intent>
+        <!-- speech_to_text + flutter_tts: discover the speech & TTS services. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE"/>
         </intent>
     </queries>
 </manifest>
