@@ -35,7 +35,8 @@ void main() {
     final model = MockFogModel();
     final window = Float32List(kWindowSize * kFeatureCount);
     final seen = <FogState>{};
-    for (var i = 0; i < 13; i++) {
+    // Iterate more than one full demo cycle so all phases are observed.
+    for (var i = 0; i < 30; i++) {
       seen.add(model.predict(window).state);
     }
     expect(seen, containsAll([FogState.normal, FogState.preFreeze, FogState.freezing]));

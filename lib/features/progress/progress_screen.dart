@@ -35,7 +35,7 @@ class ProgressScreen extends ConsumerWidget {
                 icon: Icons.directions_walk,
                 value: '12',
                 caption: 'Total sessions',
-                accent: AppColors.clay,
+                accent: AppColors.primary,
               ),
             ),
             SizedBox(width: AppSpacing.md),
@@ -44,7 +44,7 @@ class ProgressScreen extends ConsumerWidget {
                 icon: Icons.local_fire_department,
                 value: '5',
                 caption: 'This week',
-                accent: AppColors.sage,
+                accent: AppColors.rose,
               ),
             ),
           ],
@@ -58,7 +58,7 @@ class ProgressScreen extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Recent sessions', style: AppType.h2),
-            Text('See all', style: AppType.label.copyWith(color: AppColors.clay)),
+            Text('See all', style: AppType.label.copyWith(color: AppColors.primary)),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -80,7 +80,7 @@ class _QuoteCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        gradient: AppColors.lavenderGradient,
+        gradient: AppColors.plumGradient,
         borderRadius: BorderRadius.circular(AppRadii.lg),
         boxShadow: AppShadows.card,
       ),
@@ -157,7 +157,7 @@ class _ChartCard extends StatelessWidget {
                         toY: week[i].toDouble(),
                         width: 16,
                         color: i == week.length - 2
-                            ? AppColors.clay
+                            ? AppColors.primary
                             : AppColors.surfaceDeep,
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -186,7 +186,7 @@ class _WeeklySummary extends StatelessWidget {
           Divider(height: AppSpacing.lg, color: AppColors.surfaceDeep),
           _SummaryRow(label: 'Total walking time', value: '1h 25m'),
           Divider(height: AppSpacing.lg, color: AppColors.surfaceDeep),
-          _SummaryRow(label: 'Freezes eased', value: '7'),
+          _SummaryRow(label: 'Walks this week', value: '5'),
         ],
       ),
     );
@@ -228,10 +228,10 @@ class _SessionTile extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.clay.withValues(alpha: 0.14),
+              color: AppColors.primary.withValues(alpha: 0.14),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.directions_walk, color: AppColors.clay),
+            child: const Icon(Icons.directions_walk, color: AppColors.primary),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(

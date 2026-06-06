@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import '../core/a11y/a11y.dart';
 import '../core/theme/tokens.dart';
 
-/// Floating pill-shaped bottom navigation.
-///
-/// Five slots: Home · Progress · [raised circular gradient START button] ·
-/// Profile · Settings. The centre button launches a session from anywhere.
-/// Taps only (no gestures); every item is icon + label so colour isn't the
-/// only cue, and each target is >= [A11y.minTapTarget].
+/// Floating pill bottom navigation with a circular Start button docked into the
+/// bar. The bar has a CONCAVE NOTCH scooped out around the button, leaving a
+/// ring of empty (background) space between the button and the bar edge — and
+/// the button sits a bit more than halfway down into the bar.
+/// Slots: Home · Progress · [Start] · Profile · Settings. Taps only.
 class FloatingNav extends StatelessWidget {
   const FloatingNav({
     super.key,
@@ -17,56 +16,116 @@ class FloatingNav extends StatelessWidget {
     required this.onStart,
   });
 
-  /// 0=Home, 1=Progress, 2=Profile, 3=Settings (the centre Start isn't an index).
+  /// 0=Home, 1=Progress, 2=Profile, 3=Settings (centre Start isn't an index).
   final int index;
   final ValueChanged<int> onSelect;
   final VoidCallback onStart;
 
+  static const double _barHeight = 66;
+  static const double _btnSize = 64;
+  static const double _ringGap = 7; // empty space between button and bar cutout
+  static const double _overlapDown = 9; // how far the button centre sits below bar top
+
   @override
   Widget build(BuildContext context) {
+    const notchRadius = _btnSize / 2 + _ringGap;
+    // Region tall enough for the part of the button that pops above the bar.
+    const regionH = _barHeight + _btnSize / 2 - _overlapDown;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
-      child: Container(
-        height: 74,
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(AppRadii.pill),
-          boxShadow: AppShadows.raised,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: SizedBox(
+        height: regionH,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            _NavItem(
-              icon: Icons.home_rounded,
-              label: 'Home',
-              selected: index == 0,
-              onTap: () => onSelect(0),
+            // The notched bar, anchored to the bottom.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SizedBox(
+                height: _barHeight,
+                child: CustomPaint(
+                  painter: _NotchedBarPainter(
+                    notchCenterY: _overlapDown,
+                    notchRadius: notchRadius,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _NavItem(
+                          icon: Icons.home_rounded,
+                          label: 'Home',
+                          selected: index == 0,
+                          onTap: () => onSelect(0)),
+                      _NavItem(
+                          icon: Icons.insights_rounded,
+                          label: 'Progress',
+                          selected: index == 1,
+                          onTap: () => onSelect(1)),
+                      const SizedBox(width: _btnSize + 24), // clearance for the notch
+                      _NavItem(
+                          icon: Icons.person_rounded,
+                          label: 'Profile',
+                          selected: index == 2,
+                          onTap: () => onSelect(2)),
+                      _NavItem(
+                          icon: Icons.settings_rounded,
+                          label: 'Settings',
+                          selected: index == 3,
+                          onTap: () => onSelect(3)),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            _NavItem(
-              icon: Icons.insights_rounded,
-              label: 'Progress',
-              selected: index == 1,
-              onTap: () => onSelect(1),
-            ),
-            _StartButton(onTap: onStart),
-            _NavItem(
-              icon: Icons.person_rounded,
-              label: 'Profile',
-              selected: index == 2,
-              onTap: () => onSelect(2),
-            ),
-            _NavItem(
-              icon: Icons.settings_rounded,
-              label: 'Settings',
-              selected: index == 3,
-              onTap: () => onSelect(3),
+            // The Start button, sitting in the notch.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Center(child: _StartButton(onTap: onStart, size: _btnSize)),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+/// Paints the white pill bar with a circular notch (plus ring gap) cut out at
+/// top-centre, and a soft shadow that follows the notched shape.
+class _NotchedBarPainter extends CustomPainter {
+  _NotchedBarPainter({required this.notchCenterY, required this.notchRadius});
+  final double notchCenterY;
+  final double notchRadius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final host = Offset.zero & size;
+    final guest = Rect.fromCircle(
+      center: Offset(size.width / 2, notchCenterY),
+      radius: notchRadius,
+    );
+    // CircularNotchedRectangle gives smooth S-curve shoulders (soft corners)
+    // around the button instead of sharp cusps.
+    final notched = const CircularNotchedRectangle().getOuterPath(host, guest);
+    final pill = Path()
+      ..addRRect(RRect.fromRectAndRadius(host, Radius.circular(size.height / 2)));
+    // Intersect to keep the rounded pill ends while using the smooth notch.
+    final path = Path.combine(PathOperation.intersect, notched, pill);
+
+    canvas.drawShadow(path, const Color(0x55394A40), 8, false);
+    canvas.drawPath(path, Paint()
+      ..color = AppColors.card
+      ..isAntiAlias = true);
+  }
+
+  @override
+  bool shouldRepaint(covariant _NotchedBarPainter old) =>
+      old.notchCenterY != notchCenterY || old.notchRadius != notchRadius;
 }
 
 class _NavItem extends StatelessWidget {
@@ -95,11 +154,11 @@ class _NavItem extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(
               minWidth: A11y.minTapTarget, minHeight: A11y.minTapTarget),
-          padding: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 26),
+              Icon(icon, color: color, size: 25),
               const SizedBox(height: 3),
               Text(
                 label,
@@ -118,26 +177,32 @@ class _NavItem extends StatelessWidget {
 }
 
 class _StartButton extends StatelessWidget {
-  const _StartButton({required this.onTap});
+  const _StartButton({required this.onTap, required this.size});
   final VoidCallback onTap;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
       label: 'Start walk',
-      child: InkResponse(
-        onTap: onTap,
-        radius: 44,
-        child: Container(
-          width: 62,
-          height: 62,
-          decoration: BoxDecoration(
-            gradient: AppColors.accentGradient,
-            shape: BoxShape.circle,
-            boxShadow: AppShadows.raised,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkResponse(
+          onTap: onTap,
+          radius: size * 0.7,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: const BoxDecoration(
+              gradient: AppColors.accentGradient,
+              shape: BoxShape.circle,
+              boxShadow: AppShadows.raised,
+            ),
+            child: const Icon(Icons.directions_walk, color: Colors.white, size: 30),
           ),
-          child: const Icon(Icons.directions_walk, color: Colors.white, size: 30),
         ),
       ),
     );

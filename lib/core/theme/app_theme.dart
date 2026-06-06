@@ -12,9 +12,9 @@ class AppTheme {
 
   static ThemeData get light {
     final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.clay,
+      seedColor: AppColors.primary,
       primary: AppColors.ink,
-      secondary: AppColors.lavender,
+      secondary: AppColors.plum,
       surface: AppColors.card,
       brightness: Brightness.light,
     );
