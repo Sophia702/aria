@@ -23,8 +23,8 @@ Key insight from the competition:
 """
 
 import tensorflow as tf
-import tensorflow.keras as keras
-from tensorflow.keras import layers, callbacks, regularizers
+import keras
+from keras import layers, callbacks, regularizers
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
