@@ -331,4 +331,10 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get summaryQuote =>
       'Le rythme est une ancre douce — vous avez trouvé le vôtre aujourd\'hui.';
+
+  @override
+  String get developerSection => '🛠  Développeur';
+
+  @override
+  String get restartOnboarding => 'Recommencer l\'intégration';
 }

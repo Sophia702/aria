@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/persistence/app_prefs.dart';
 import '../../l10n/app_localizations.dart';
+import '../../providers/providers.dart';
 import '../../widgets/gradient_button.dart';
 
 /// Screen 09 — Profile. Personal, medical, and emergency-contact info. The
@@ -17,15 +19,15 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  // Seed values (would come from storage).
+  // Seed values (load from storage asynchronously).
   final _initial = <String, String>{
-    'name': 'Margaret',
-    'age': '68',
-    'meds': 'Levodopa, Carbidopa',
-    'clinician': 'Dr. Alvarez',
-    'contactType': 'Daughter',
-    'contactName': 'Sarah',
-    'contactPhone': '+1 555 0142',
+    'name': '',
+    'age': '',
+    'meds': '',
+    'clinician': '',
+    'contactType': '',
+    'contactName': '',
+    'contactPhone': '',
   };
 
   late final Map<String, TextEditingController> _c = {
@@ -40,6 +42,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     for (final ctrl in _c.values) {
       ctrl.addListener(_recomputeDirty);
     }
+    AppPrefs.getProfile().then((data) {
+      if (!mounted) return;
+      setState(() {
+        for (final e in data.entries) {
+          _initial[e.key] = e.value;
+          _c[e.key]?.text = e.value;
+        }
+        _dirty = false;
+      });
+    });
   }
 
   void _recomputeDirty() {
@@ -47,14 +59,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (dirty != _dirty) setState(() => _dirty = dirty);
   }
 
-  void _save() {
+  Future<void> _save() async {
+    await AppPrefs.saveProfile({for (final e in _c.entries) e.key: e.value.text});
+    ref.invalidate(userNameProvider);
     for (final e in _c.entries) {
       _initial[e.key] = e.value.text;
     }
     setState(() => _dirty = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Changes saved')),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Changes saved')),
+      );
+    }
   }
 
   @override
@@ -69,8 +85,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md,
-          AppSpacing.lg, AppSpacing.navClearance),
+      padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md,
+          AppSpacing.lg, AppSpacing.navClearance + MediaQuery.of(context).padding.bottom),
       children: [
         Text(l10n?.profile ?? 'Profile', style: AppType.h1),
         const SizedBox(height: AppSpacing.md),

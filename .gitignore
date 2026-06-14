@@ -47,3 +47,6 @@ app.*.map.json
 
 # Dev screenshots
 flutter_*.png
+
+# API keys — never commit
+lib/config.dart

@@ -109,7 +109,7 @@ class AppSpacing {
   static const double xxl = 48;
 
   /// Bottom padding tab content reserves so the floating nav doesn't cover it.
-  static const double navClearance = 122;
+  static const double navClearance = 140;
 }
 
 class AppShadows {

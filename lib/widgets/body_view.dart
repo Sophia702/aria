@@ -88,46 +88,76 @@ class _BodyPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
     final cx = w / 2;
-    final body = Paint()
-      ..color = AppColors.surfaceDeep
+    final paint = Paint()
+      ..color = const Color(0xFF2E3440)
       ..style = PaintingStyle.fill
       ..isAntiAlias = true;
-    final limb = Paint()
-      ..color = AppColors.surfaceDeep
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..isAntiAlias = true;
 
-    // Head.
-    canvas.drawCircle(Offset(cx, h * 0.10), w * 0.105, body);
+    // Head
+    canvas.drawCircle(Offset(cx, h * 0.09), w * 0.11, paint);
 
-    // Torso (rounded).
-    final torso = RRect.fromRectAndRadius(
-      Rect.fromLTRB(cx - w * 0.17, h * 0.19, cx + w * 0.17, h * 0.56),
-      Radius.circular(w * 0.16),
+    // Torso — wider, rounder
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(cx - w * 0.20, h * 0.18, cx + w * 0.20, h * 0.55),
+        Radius.circular(w * 0.14),
+      ),
+      paint,
     );
-    canvas.drawRRect(torso, body);
 
-    // Arms.
-    limb.strokeWidth = w * 0.11;
-    canvas.drawLine(
-        Offset(cx - w * 0.14, h * 0.24), Offset(cx - w * 0.34, h * 0.47), limb);
-    canvas.drawLine(
-        Offset(cx + w * 0.14, h * 0.24), Offset(cx + w * 0.34, h * 0.47), limb);
+    // Left arm
+    final leftArm = Path()
+      ..moveTo(cx - w * 0.18, h * 0.20)
+      ..quadraticBezierTo(cx - w * 0.40, h * 0.28, cx - w * 0.36, h * 0.50)
+      ..lineTo(cx - w * 0.28, h * 0.50)
+      ..quadraticBezierTo(cx - w * 0.30, h * 0.30, cx - w * 0.12, h * 0.22)
+      ..close();
+    canvas.drawPath(leftArm, paint);
 
-    // Legs (reach down to the ankle markers).
-    limb.strokeWidth = w * 0.13;
-    canvas.drawLine(
-        Offset(cx - w * 0.08, h * 0.54), Offset(cx - w * 0.10, h * 0.88), limb);
-    canvas.drawLine(
-        Offset(cx + w * 0.08, h * 0.54), Offset(cx + w * 0.10, h * 0.88), limb);
+    // Right arm
+    final rightArm = Path()
+      ..moveTo(cx + w * 0.18, h * 0.20)
+      ..quadraticBezierTo(cx + w * 0.40, h * 0.28, cx + w * 0.36, h * 0.50)
+      ..lineTo(cx + w * 0.28, h * 0.50)
+      ..quadraticBezierTo(cx + w * 0.30, h * 0.30, cx + w * 0.12, h * 0.22)
+      ..close();
+    canvas.drawPath(rightArm, paint);
 
-    // Feet.
-    limb.strokeWidth = w * 0.07;
-    canvas.drawLine(
-        Offset(cx - w * 0.10, h * 0.90), Offset(cx - w * 0.02, h * 0.92), limb);
-    canvas.drawLine(
-        Offset(cx + w * 0.10, h * 0.90), Offset(cx + w * 0.02, h * 0.92), limb);
+    // Left leg
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(cx - w * 0.18, h * 0.52, cx - w * 0.04, h * 0.88),
+        Radius.circular(w * 0.07),
+      ),
+      paint,
+    );
+
+    // Right leg
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(cx + w * 0.04, h * 0.52, cx + w * 0.18, h * 0.88),
+        Radius.circular(w * 0.07),
+      ),
+      paint,
+    );
+
+    // Left foot
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(cx - w * 0.20, h * 0.85, cx - w * 0.03, h * 0.93),
+        Radius.circular(w * 0.04),
+      ),
+      paint,
+    );
+
+    // Right foot
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(cx + w * 0.03, h * 0.85, cx + w * 0.20, h * 0.93),
+        Radius.circular(w * 0.04),
+      ),
+      paint,
+    );
   }
 
   @override

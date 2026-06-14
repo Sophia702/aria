@@ -14,8 +14,7 @@ import '../../widgets/pulse_ring.dart';
 import '../session/start_walk.dart';
 
 class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key, this.name = 'Margaret'});
-  final String name;
+  const HomeScreen({super.key});
 
   static String _greeting(AppLocalizations? l10n) {
     final h = DateTime.now().hour;
@@ -43,6 +42,7 @@ class HomeScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final sensors = ref.watch(sensorSourceProvider);
     final voiceEnabled = ref.watch(voiceControllerProvider).enabled;
+    final name = ref.watch(userNameProvider).asData?.value ?? 'there';
 
     return Stack(
       children: [
@@ -52,8 +52,8 @@ class HomeScreen extends ConsumerWidget {
             child: _orb(AppColors.primary, 200, 0.08)),
 
         SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md,
-              AppSpacing.lg, AppSpacing.navClearance),
+          padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md,
+              AppSpacing.lg, AppSpacing.navClearance + MediaQuery.of(context).padding.bottom),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -84,8 +84,8 @@ class HomeScreen extends ConsumerWidget {
                         }
                       },
                       child: Container(
-                        width: 52,
-                        height: 52,
+                        width: 68,
+                        height: 68,
                         decoration: BoxDecoration(
                           color: AppColors.accent,
                           shape: BoxShape.circle,
@@ -98,7 +98,7 @@ class HomeScreen extends ConsumerWidget {
                           ],
                         ),
                         child: const Icon(Icons.mic_rounded,
-                            color: Colors.white, size: 22),
+                            color: Colors.white, size: 28),
                       ),
                     ),
                   ),

@@ -5,9 +5,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../features/session/summary_screen.dart';
 import '../../features/session/walking_screen.dart';
 import '../../providers/providers.dart';
+import '../../data/persistence/app_prefs.dart';
 import '../intervention/intervention_manager.dart';
 import '../session/session_state.dart';
-import 'voice_intent.dart';
+import 'claude_api_service.dart';
 
 enum VoiceStatus { off, idle, listening, speaking, confirming, unavailable }
 
@@ -40,17 +41,14 @@ class VoiceUiState {
 }
 
 /// Pending phone call awaiting a spoken yes/no confirmation.
-enum _PendingCall { emergency, support }
+enum _PendingCall { emergency }
 
-const _helpText =
-    'You can say: start walk, end walk, home, progress, profile, settings, '
-    'breathing, call my contact, or stop listening.';
-
-/// Orchestrates the hands-free loop: narrate → listen → match intent → act →
-/// repeat. Drives navigation via [navigatorKey] + [navIndexProvider] and the
-/// walk via the session controller. Calls are guarded by a yes/no confirm.
+/// Orchestrates the hands-free loop: greet → listen → send to Claude →
+/// act on tool calls or speak responses → repeat. Drives navigation via
+/// [navigatorKey] + [navIndexProvider] and the walk via the session controller.
 class VoiceController extends Notifier<VoiceUiState> {
-  static const _parser = VoiceIntentParser();
+  final _claude = ClaudeApiService();
+  final List<ClaudeMessage> _history = [];
   bool _looping = false;
   _PendingCall? _pending;
 
@@ -69,7 +67,7 @@ class VoiceController extends Notifier<VoiceUiState> {
       );
       return;
     }
-    await _say('Voice assist on. $_helpText');
+    await _say("Hi, I'm aria. How can I help you today?");
     _loop();
   }
 
@@ -77,6 +75,7 @@ class VoiceController extends Notifier<VoiceUiState> {
     state = state.copyWith(
         enabled: false, status: VoiceStatus.off, caption: '', lastHeard: '');
     _pending = null;
+    _history.clear();
     await ref.read(voiceAssistantProvider).stopListening();
   }
 
@@ -103,115 +102,156 @@ class VoiceController extends Notifier<VoiceUiState> {
       if (!state.enabled) break;
       if (text == null || text.trim().isEmpty) continue;
       state = state.copyWith(lastHeard: text);
-      await _handle(_parser.parse(text));
+
+      // If there is a pending call confirmation, handle it with simple keyword
+      // matching before going to Claude (avoids extra API latency for yes/no).
+      if (_pending != null) {
+        await _resolvePending(text);
+        continue;
+      }
+
+      // Send to Claude.
+      final response = await _claude.chat(text, _history);
+
+      if (response is ClaudeTextResponse) {
+        _history.addAll(response.updatedHistory.skip(_history.length));
+        await _say(response.text);
+      } else if (response is ClaudeToolResponse) {
+        // Update history with user turn + assistant tool_use turn.
+        _history.addAll(response.updatedHistory.skip(_history.length));
+
+        final toolResult = await _handleToolCall(response);
+
+        // Send tool result back to Claude for a spoken confirmation.
+        final confirmationText = await _claude.sendToolResult(
+          response.toolUseId,
+          toolResult,
+          response.updatedHistory,
+        );
+
+        // Append tool_result user turn + assistant confirmation turn to history.
+        _history.add(ClaudeMessage(
+          role: 'user',
+          content: [
+            {
+              'type': 'tool_result',
+              'tool_use_id': response.toolUseId,
+              'content': toolResult,
+            },
+          ],
+        ));
+        _history.add(ClaudeMessage(role: 'assistant', content: confirmationText));
+
+        await _say(confirmationText);
+      } else if (response is ClaudeErrorResponse) {
+        await _say("Sorry, I had a problem understanding that. Please try again.");
+      }
     }
     _looping = false;
   }
 
-  Future<void> _handle(VoiceIntent intent) async {
-    // Resolve a pending call confirmation first.
-    if (_pending != null) {
-      if (intent == VoiceIntent.yes) {
-        final p = _pending!;
-        _pending = null;
-        await _dial(p);
-      } else if (intent == VoiceIntent.no) {
-        _pending = null;
-        await _say('Okay, cancelled.');
-      } else {
-        await _say('Please say yes or no.');
-      }
-      return;
-    }
+  /// Handle a pending call confirmation with simple yes/no keyword detection.
+  Future<void> _resolvePending(String text) async {
+    final lower = text.toLowerCase();
+    final isYes = lower.contains('yes') || lower.contains('yeah') || lower.contains('sure');
+    final isNo = lower.contains('no') || lower.contains('nope') || lower.contains('cancel');
 
-    switch (intent) {
-      case VoiceIntent.disableVoice:
-        await _say('Turning voice off.');
-        await disable();
-      case VoiceIntent.help:
-        await _say(_helpText);
-      case VoiceIntent.goHome:
-        _goTab(0, 'home');
-      case VoiceIntent.goProgress:
-        _goTab(1, 'progress');
-      case VoiceIntent.goProfile:
-        _goTab(2, 'profile');
-      case VoiceIntent.goSettings:
-        _goTab(3, 'settings');
-      case VoiceIntent.startWalk:
+    if (isYes) {
+      final p = _pending!;
+      _pending = null;
+      await _dial(p);
+    } else if (isNo) {
+      _pending = null;
+      await _say('Okay, cancelled.');
+    } else {
+      await _say('Please say yes or no.');
+    }
+  }
+
+  Future<String> _handleToolCall(ClaudeToolResponse r) async {
+    switch (r.toolName) {
+      case 'navigate_to':
+        final screen = r.toolInput['screen'] as String? ?? '';
+        final screenIndex = r.toolInput['screenIndex'] as int? ?? 0;
+        _goTab(screenIndex, screen);
+        return 'Navigated to ${r.toolInput['screen']}';
+
+      case 'start_walk':
         await _startWalk();
-      case VoiceIntent.endWalk:
+        return 'Walk started';
+
+      case 'end_walk':
         await _endWalk();
-      case VoiceIntent.imOkay:
-        await _resolveIntervention(
-            InterventionAction.imOkayContinue, "Okay — keep going.");
-      case VoiceIntent.breathing:
-        await _resolveIntervention(
-            InterventionAction.breathing, 'Let’s take a slow breath together.');
-      case VoiceIntent.callEmergency:
-        _pending = _PendingCall.emergency;
-        await _say('Call your emergency contact? Say yes or no.');
-      case VoiceIntent.callSupport:
-        _pending = _PendingCall.support;
-        await _say('Call the support line? Say yes or no.');
-      case VoiceIntent.yes:
-      case VoiceIntent.no:
-      case VoiceIntent.unknown:
-        await _say("Sorry, I didn't catch that. Say help for options.");
+        return 'Walk ended';
+
+      case 'update_setting':
+        final setting = r.toolInput['setting'] as String? ?? '';
+        final value = r.toolInput['value'] as String? ?? '';
+        await _updateSetting(setting, value);
+        return 'Setting updated';
+
+      case 'update_profile':
+        final field = r.toolInput['field'] as String? ?? '';
+        final value = r.toolInput['value'] as String? ?? '';
+        await AppPrefs.saveProfile({field: value});
+        if (field == 'name') {
+          ref.invalidate(userNameProvider);
+        }
+        return 'Profile updated';
+
+      case 'call_emergency':
+        await _dial(_PendingCall.emergency);
+        return 'Calling emergency contact';
+
+      default:
+        return 'Action not available';
+    }
+  }
+
+  Future<void> _updateSetting(String setting, String value) async {
+    switch (setting) {
+      case 'voice':
+        final enabled = value.toLowerCase() == 'true';
+        await AppPrefs.setVoiceEnabled(enabled);
+        if (!enabled) await disable();
+      case 'language':
+        ref.read(localeProvider.notifier).set(Locale(value));
+      case 'reminders':
+        // Reminders toggle — stored for future use.
+        break;
     }
   }
 
   void _goTab(int index, String name) {
     navigatorKey.currentState?.popUntil((r) => r.isFirst);
     ref.read(navIndexProvider.notifier).set(index);
-    _say('Opening $name.');
   }
 
   Future<void> _startWalk() async {
     final session = ref.read(sessionControllerProvider);
     if (session.state == SessionState.walkingNormal ||
         session.state == SessionState.intervention) {
-      await _say('You’re already walking.');
-      return;
+      return; // Claude will handle the spoken response
     }
     await ref.read(sessionControllerProvider.notifier).startSession(bpm: 108);
     navigatorKey.currentState
         ?.push(MaterialPageRoute(builder: (_) => const WalkingScreen()));
-    await _say('Starting your walk. Keep your rhythm. Say end walk when done.');
   }
 
   Future<void> _endWalk() async {
     final session = ref.read(sessionControllerProvider);
     if (session.state != SessionState.walkingNormal &&
         session.state != SessionState.intervention) {
-      await _say('You’re not on a walk right now.');
-      return;
+      return; // Claude will handle the spoken response
     }
     await ref.read(sessionControllerProvider.notifier).endSession();
     navigatorKey.currentState
         ?.pushReplacement(MaterialPageRoute(builder: (_) => const SummaryScreen()));
-    await _say('Nice walk. You can say done, or home.');
-  }
-
-  Future<void> _resolveIntervention(
-      InterventionAction action, String spoken) async {
-    final session = ref.read(sessionControllerProvider);
-    if (session.state != SessionState.intervention) {
-      await _say("There's nothing to respond to right now.");
-      return;
-    }
-    await ref
-        .read(sessionControllerProvider.notifier)
-        .resolveIntervention(action);
-    navigatorKey.currentState?.maybePop(); // close the intervention screen
-    await _say(spoken);
   }
 
   Future<void> _dial(_PendingCall which) async {
-    final number = which == _PendingCall.emergency ? '911' : '811';
-    final action = which == _PendingCall.emergency
-        ? InterventionAction.callEmergencyContact
-        : InterventionAction.callSupportLine;
+    final number = '911';
+    final action = InterventionAction.callEmergencyContact;
     final session = ref.read(sessionControllerProvider);
     if (session.state == SessionState.intervention) {
       await ref

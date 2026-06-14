@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -26,7 +24,8 @@ class OnboardingFlow extends ConsumerStatefulWidget {
 
 enum _Baseline { idle, walking, done }
 
-class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
+class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
+    with SingleTickerProviderStateMixin {
   static const _steps = 5;
   static const _baselineSecs = 12;
 
@@ -42,12 +41,19 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   final _contactPhone = TextEditingController();
 
   _Baseline _baseline = _Baseline.idle;
-  int _secsLeft = _baselineSecs;
-  Timer? _timer;
+
+  late final AnimationController _animController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: _baselineSecs),
+  );
+  late final Animation<double> _animProgress = CurvedAnimation(
+    parent: _animController,
+    curve: Curves.linear,
+  );
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _animController.dispose();
     for (final c in [
       _name,
       _age,
@@ -69,6 +75,16 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   }
 
   Future<void> _finish() async {
+    await AppPrefs.saveProfile({
+      'name': _name.text,
+      'age': _age.text,
+      'meds': _meds.text,
+      'clinician': '',
+      'contactType': _contactType.text,
+      'contactName': _contactName.text,
+      'contactPhone': _contactPhone.text,
+    });
+    ref.invalidate(userNameProvider);
     await AppPrefs.setOnboarded();
     await AppPrefs.setVoiceEnabled(_speechAssist);
     if (!mounted) return;
@@ -81,20 +97,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   }
 
   void _startBaseline() {
-    setState(() {
-      _baseline = _Baseline.walking;
-      _secsLeft = _baselineSecs;
-    });
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_secsLeft <= 1) {
-        t.cancel();
-        setState(() {
-          _secsLeft = 0;
-          _baseline = _Baseline.done;
-        });
+    setState(() => _baseline = _Baseline.walking);
+    _animController.forward(from: 0);
+    _animController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() => _baseline = _Baseline.done);
         Future.delayed(const Duration(milliseconds: 900), _finish);
-      } else {
-        setState(() => _secsLeft--);
       }
     });
   }
@@ -329,10 +337,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   // Step 4 — Baseline walk.
   Widget _baselineWalk(AppLocalizations? l10n) {
-    final progress = (_baselineSecs - _secsLeft) / _baselineSecs;
-    final elapsed = _baselineSecs - _secsLeft;
-    final elapsedMins = (elapsed ~/ 60).toString();
-    final elapsedSecs = (elapsed % 60).toString().padLeft(2, '0');
     final totalMins = (_baselineSecs ~/ 60).toString();
     final totalSecs = (_baselineSecs % 60).toString().padLeft(2, '0');
 
@@ -352,33 +356,52 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         Text('Take a few steps so aria can learn your natural pace.',
             style: AppType.body, textAlign: TextAlign.center),
         const Spacer(),
-        SizedBox(
-          width: 200,
-          height: 200,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 200,
-                height: 200,
-                child: CircularProgressIndicator(
-                  value: _baseline == _Baseline.idle ? 0 : progress,
-                  strokeWidth: 12,
-                  backgroundColor: AppColors.surfaceDeep,
-                  valueColor:
-                      const AlwaysStoppedAnimation(AppColors.primary),
+        Center(
+          child: AnimatedBuilder(
+            animation: _animProgress,
+            builder: (context, _) {
+              final elapsed = (_animProgress.value * _baselineSecs).round();
+              final elapsedMins = (elapsed ~/ 60).toString();
+              final elapsedSecs = (elapsed % 60).toString().padLeft(2, '0');
+              return SizedBox(
+                width: 260,
+                height: 260,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 260,
+                      height: 260,
+                      child: CircularProgressIndicator(
+                        value: _baseline == _Baseline.idle ? 0 : _animProgress.value,
+                        strokeWidth: 14,
+                        backgroundColor: AppColors.surfaceDeep,
+                        valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                      ),
+                    ),
+                    if (_baseline == _Baseline.done)
+                      const Icon(Icons.check_rounded,
+                          size: 72, color: AppColors.primary)
+                    else
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$elapsedMins:$elapsedSecs',
+                            style: AppType.h2.copyWith(
+                                fontSize: 44, letterSpacing: -1.0),
+                          ),
+                          Text(
+                            'of $totalMins:$totalSecs',
+                            style: AppType.label.copyWith(
+                                fontSize: 16, color: AppColors.inkSoft),
+                          ),
+                        ],
+                      ),
+                  ],
                 ),
-              ),
-              if (_baseline == _Baseline.done)
-                const Icon(Icons.check_rounded,
-                    size: 56, color: AppColors.primary)
-              else
-                Text(
-                  '$elapsedMins:$elapsedSecs / $totalMins:$totalSecs',
-                  style: AppType.h2.copyWith(
-                      fontSize: 18, letterSpacing: -0.5),
-                ),
-            ],
+              );
+            },
           ),
         ),
         const Spacer(),

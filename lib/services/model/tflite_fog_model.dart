@@ -1,26 +1,32 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
+
+import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../../core/sensor_schema.dart';
 import '../../data/models/fog_prediction.dart';
 import 'fog_model.dart';
 
-/// STUB — real on-device inference for the trained FoG model.
+/// On-device FoG inference via tflite_flutter.
 ///
-/// A teammate implements this in M4 using `tflite_flutter`:
-///   1. Drop the exported model at assets/models/fog_model.tflite (declare it
-///      in pubspec assets).
-///   2. load(): create an Interpreter from the asset.
-///   3. predict(window): reshape to [1, 120, 24], run, read the FoG probability.
+/// ## Setup (one-time, from Colab after training):
+///   1. Run export_model.py in Colab — saves fog_model.tflite.
+///   2. Drop fog_model.tflite into assets/models/.
+///   3. In providers.dart swap MockFogModel → TfliteFogModel.
 ///
-/// IMPORTANT — normalisation: prepare_data.py scales features PER SUBJECT with
-/// StandardScaler. Inference must apply equivalent normalisation, either baked
-/// into the graph or by loading exported mean/std and normalising `window`
-/// here before running. Then map probability -> FogState via [FogThresholds]
-/// and tune the bands for a real 1–2 s pre-freeze lead.
+/// ## Normalization (per-subject):
+///   prepare_data.py uses StandardScaler per subject. Call [setNormParams]
+///   with stats computed from the baseline walk before the first real session.
+///   Without it, raw values are passed through (predictions will be off).
 class TfliteFogModel implements FogModel {
   TfliteFogModel({this.thresholds = const FogThresholds()});
 
   final FogThresholds thresholds;
+  Interpreter? _interpreter;
+  Float32List? _mean;
+  Float32List? _std;
+
+  static const _modelAsset = 'assets/models/fog_model.tflite';
 
   @override
   int get windowSize => kWindowSize;
@@ -28,14 +34,95 @@ class TfliteFogModel implements FogModel {
   @override
   int get featureCount => kFeatureCount;
 
-  @override
-  Future<void> load() =>
-      throw UnimplementedError('TfliteFogModel.load — implement in M4');
+  /// Call this with stats from [computeNormParams] after the baseline walk.
+  void setNormParams(Float32List mean, Float32List std) {
+    assert(mean.length == kFeatureCount && std.length == kFeatureCount);
+    _mean = mean;
+    _std = std;
+  }
 
   @override
-  FogPrediction predict(Float32List window) =>
-      throw UnimplementedError('TfliteFogModel.predict — implement in M4');
+  Future<void> load() async {
+    _interpreter = await Interpreter.fromAsset(_modelAsset);
+  }
 
   @override
-  Future<void> dispose() async {}
+  FogPrediction predict(Float32List window) {
+    assert(
+      window.length == windowSize * featureCount,
+      'window must be ${windowSize * featureCount} floats',
+    );
+
+    final input = _normalize(window);
+
+    // [1, windowSize, featureCount]
+    final inputTensor = [
+      List.generate(
+        windowSize,
+        (t) => List.generate(featureCount, (f) => input[t * featureCount + f]),
+      ),
+    ];
+    // [1, 1] — single sigmoid output
+    final outputTensor = [List.filled(1, 0.0)];
+
+    _interpreter!.run(inputTensor, outputTensor);
+
+    final prob = (outputTensor[0][0] as num).toDouble().clamp(0.0, 1.0);
+    return FogPrediction(
+      fogProbability: prob,
+      state: thresholds.classify(prob),
+      confidence: 1.0,
+    );
+  }
+
+  Float32List _normalize(Float32List window) {
+    final mean = _mean;
+    final std = _std;
+    if (mean == null || std == null) return window;
+    final out = Float32List(window.length);
+    for (var i = 0; i < window.length; i++) {
+      final col = i % featureCount;
+      final s = std[col];
+      out[i] = s > 1e-8 ? (window[i] - mean[col]) / s : 0.0;
+    }
+    return out;
+  }
+
+  @override
+  Future<void> dispose() async {
+    _interpreter?.close();
+    _interpreter = null;
+  }
+}
+
+/// Computes per-subject StandardScaler mean/std from raw sensor windows
+/// collected during the baseline walk. Pass the result to
+/// [TfliteFogModel.setNormParams] before starting a real session.
+({Float32List mean, Float32List std}) computeNormParams(
+    List<Float32List> windows, int featureCount) {
+  final n = windows.length * (windows.first.length ~/ featureCount);
+  final mean = Float32List(featureCount);
+  final std = Float32List(featureCount);
+
+  for (final w in windows) {
+    for (var i = 0; i < w.length; i++) {
+      mean[i % featureCount] += w[i];
+    }
+  }
+  for (var f = 0; f < featureCount; f++) {
+    mean[f] /= n;
+  }
+
+  for (final w in windows) {
+    for (var i = 0; i < w.length; i++) {
+      final d = w[i] - mean[i % featureCount];
+      std[i % featureCount] += d * d;
+    }
+  }
+  for (var f = 0; f < featureCount; f++) {
+    final variance = std[f] / n;
+    std[f] = variance > 0 ? math.sqrt(variance) : 1.0;
+  }
+
+  return (mean: mean, std: std);
 }

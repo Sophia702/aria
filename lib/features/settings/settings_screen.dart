@@ -41,8 +41,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final l10n = AppLocalizations.of(context);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md,
-          AppSpacing.lg, AppSpacing.navClearance),
+      padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md,
+          AppSpacing.lg, AppSpacing.navClearance + MediaQuery.of(context).padding.bottom),
       children: [
         Text(l10n?.settings ?? 'Settings', style: AppType.h1),
         const SizedBox(height: AppSpacing.md),
@@ -126,10 +126,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ]),
         const SizedBox(height: AppSpacing.md),
-        _Section(title: '🛠  Developer', children: [
+        _Section(title: l10n?.developerSection ?? '🛠  Developer', children: [
           _RowTile(
             icon: Icons.replay_rounded,
-            title: 'Restart onboarding',
+            title: l10n?.restartOnboarding ?? 'Restart onboarding',
             trailing: const Icon(Icons.chevron_right, color: AppColors.inkFaint),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(

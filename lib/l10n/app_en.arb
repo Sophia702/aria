@@ -106,5 +106,7 @@
   "sortMostSteps": "Most steps",
   "steps": "Steps",
   "progressQuote": "Every step you take is a small act of courage.",
-  "summaryQuote": "Rhythm is a gentle anchor — you found yours today."
+  "summaryQuote": "Rhythm is a gentle anchor — you found yours today.",
+  "developerSection": "🛠  Developer",
+  "restartOnboarding": "Restart onboarding"
 }

@@ -36,9 +36,10 @@ class FloatingNav extends StatelessWidget {
     // Region tall enough for the part of the button that pops above the bar.
     const regionH = _barHeight + _btnSize / 2 - _overlapDown;
 
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+      padding: EdgeInsets.fromLTRB(
+          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md + bottomInset),
       child: SizedBox(
         height: regionH,
         child: Stack(
@@ -177,12 +178,14 @@ class _NavItem extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 25),
+              Icon(icon, color: color, size: 22),
               const SizedBox(height: 3),
               Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: color,
                 ),

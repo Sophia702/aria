@@ -106,5 +106,7 @@
   "sortMostSteps": "Plus de pas",
   "steps": "Pas",
   "progressQuote": "Chaque pas que vous faites est un petit acte de courage.",
-  "summaryQuote": "Le rythme est une ancre douce — vous avez trouvé le vôtre aujourd'hui."
+  "summaryQuote": "Le rythme est une ancre douce — vous avez trouvé le vôtre aujourd'hui.",
+  "developerSection": "🛠  Développeur",
+  "restartOnboarding": "Recommencer l'intégration"
 }

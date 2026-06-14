@@ -328,4 +328,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get summaryQuote =>
       'Rhythm is a gentle anchor — you found yours today.';
+
+  @override
+  String get developerSection => '🛠  Developer';
+
+  @override
+  String get restartOnboarding => 'Restart onboarding';
 }

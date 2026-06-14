@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/persistence/app_prefs.dart';
 import '../services/cue/cue_engine.dart';
 import '../services/cue/metronome_cue_engine.dart';
 import '../services/intervention/default_intervention_manager.dart';
@@ -83,3 +84,13 @@ class NavIndexController extends Notifier<int> {
 final navIndexProvider = NotifierProvider<NavIndexController, int>(
   NavIndexController.new,
 );
+
+class UserNameNotifier extends AsyncNotifier<String> {
+  @override
+  Future<String> build() => AppPrefs.getName();
+  Future<void> setName(String name) async {
+    await AppPrefs.setName(name);
+    state = AsyncValue.data(name);
+  }
+}
+final userNameProvider = AsyncNotifierProvider<UserNameNotifier, String>(UserNameNotifier.new);

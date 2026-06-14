@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -23,9 +24,22 @@ class KeywordVoiceAssistant implements VoiceAssistant {
       onStatus: (_) {},
     );
     await _tts.setLanguage('en-US');
-    await _tts.setSpeechRate(0.45); // calm, clear pace for older adults
+    await _tts.setSpeechRate(0.45);
     await _tts.setVolume(1.0);
     await _tts.awaitSpeakCompletion(true);
+    // iOS: use Playback category so TTS works even when the mute switch is on.
+    if (Platform.isIOS) {
+      await _tts.setSharedInstance(true);
+      await _tts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [
+          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+        ],
+        IosTextToSpeechAudioMode.defaultMode,
+      );
+    }
     return _available;
   }
 

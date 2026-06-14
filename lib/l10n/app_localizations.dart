@@ -733,6 +733,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rhythm is a gentle anchor — you found yours today.'**
   String get summaryQuote;
+
+  /// No description provided for @developerSection.
+  ///
+  /// In en, this message translates to:
+  /// **'🛠  Developer'**
+  String get developerSection;
+
+  /// No description provided for @restartOnboarding.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart onboarding'**
+  String get restartOnboarding;
 }
 
 class _AppLocalizationsDelegate
