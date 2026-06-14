@@ -2,10 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>aria uses the microphone for voice commands so you can control the app and start sessions hands-free.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>aria uses speech recognition to understand your voice commands.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -30,6 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>aria reads your Heart Rate Variability from Apple Health to monitor your wellbeing during walks.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>aria saves walking session data to Apple Health.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>aria uses the microphone for voice commands so you can control the app and start sessions hands-free.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>aria uses speech recognition to understand your voice commands.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
