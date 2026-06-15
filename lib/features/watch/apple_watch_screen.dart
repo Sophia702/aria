@@ -12,7 +12,15 @@ import '../../services/watch/hrv_service.dart';
 // ── Providers ────────────────────────────────────────────────────────────────
 
 final _hrvStreamProvider = StreamProvider.autoDispose<HrvReading?>((ref) {
-  return HrvService.liveStream();
+  // Wraps in try-catch at provider level so any platform exception → null.
+  Stream<HrvReading?> safe() async* {
+    try {
+      yield* HrvService.liveStream();
+    } catch (_) {
+      yield null;
+    }
+  }
+  return safe();
 });
 
 // ── Screen ───────────────────────────────────────────────────────────────────
@@ -137,7 +145,7 @@ class _Header extends StatelessWidget {
                 color: AppColors.ink, size: 20),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          Text('Heart Rate Variability', style: AppType.h1),
+          Text('Heart Rate', style: AppType.h1),
           const Spacer(),
           if (isLoading)
             const SizedBox(
@@ -161,7 +169,7 @@ class _WatchStatusCard extends StatelessWidget {
   final bool hasData;
   final int secondsAgo;
 
-  bool get _fresh => hasData && secondsAgo < 600; // within 10 min
+  bool get _fresh => hasData && secondsAgo < 120; // within 2 min
 
   @override
   Widget build(BuildContext context) {
@@ -227,37 +235,37 @@ class _WatchStatusCard extends StatelessWidget {
   }
 }
 
-// ── HRV display card ──────────────────────────────────────────────────────────
+// ── Heart rate display card ───────────────────────────────────────────────────
 
 class _HrvCard extends StatelessWidget {
   const _HrvCard({required this.reading, required this.secondsAgo});
   final HrvReading? reading;
   final int secondsAgo;
 
-  static ({String label, Color color, Color bg}) _quality(double ms) {
-    if (ms >= 80) {
+  static ({String label, Color color, Color bg}) _zone(double bpm) {
+    if (bpm < 60) {
       return (
-        label: 'Very Relaxed',
+        label: 'Resting',
         color: AppColors.connected,
         bg: AppColors.okSoft
       );
     }
-    if (ms >= 50) {
+    if (bpm < 100) {
       return (
-        label: 'Balanced',
+        label: 'Normal',
         color: AppColors.primary,
         bg: AppColors.primarySoft
       );
     }
-    if (ms >= 20) {
+    if (bpm < 140) {
       return (
-        label: 'Moderate',
+        label: 'Elevated',
         color: AppColors.cue,
         bg: AppColors.warnSoft
       );
     }
     return (
-      label: 'Elevated Stress',
+      label: 'High Intensity',
       color: AppColors.notConnected,
       bg: const Color(0xFFF5E4E4)
     );
@@ -272,8 +280,8 @@ class _HrvCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ms = reading?.value;
-    final q = ms != null ? _quality(ms) : null;
+    final bpm = reading?.bpm;
+    final z = bpm != null ? _zone(bpm) : null;
 
     return Container(
       decoration: AppTheme.cardDecoration(),
@@ -281,13 +289,13 @@ class _HrvCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('CURRENT HRV', style: AppType.label),
+          Text('LIVE HEART RATE', style: AppType.label),
           const SizedBox(height: AppSpacing.sm),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                ms != null ? ms.toStringAsFixed(0) : '—',
+                bpm != null ? bpm.toStringAsFixed(0) : '—',
                 style: const TextStyle(
                   fontFamily: kFontFamily,
                   fontSize: 72,
@@ -297,11 +305,11 @@ class _HrvCard extends StatelessWidget {
                   letterSpacing: -3,
                 ),
               ),
-              if (ms != null) ...[
+              if (bpm != null) ...[
                 const SizedBox(width: 8),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: Text('ms',
+                  child: Text('BPM',
                       style: AppType.body.copyWith(
                           fontSize: 20, color: AppColors.inkSoft)),
                 ),
@@ -311,17 +319,17 @@ class _HrvCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
-              if (q != null)
+              if (z != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: q.bg,
+                    color: z.bg,
                     borderRadius: BorderRadius.circular(AppRadii.pill),
                   ),
-                  child: Text(q.label,
+                  child: Text(z.label,
                       style: AppType.label.copyWith(
-                          color: q.color, fontSize: 13)),
+                          color: z.color, fontSize: 13)),
                 )
               else
                 Container(
@@ -342,7 +350,7 @@ class _HrvCard extends StatelessWidget {
               Text(_age, style: AppType.label.copyWith(fontSize: 12)),
             ],
           ),
-          if (ms == null) ...[
+          if (bpm == null) ...[
             const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
@@ -351,7 +359,7 @@ class _HrvCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Make sure your Apple Watch is wearing and Health access is authorised.',
+                    'Make sure your Apple Watch is worn and Health access is authorised.',
                     style: AppType.label.copyWith(
                         color: AppColors.inkFaint, height: 1.4),
                   ),
@@ -374,12 +382,12 @@ class _SparklineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spots = readings.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), e.value.value);
+      return FlSpot(e.key.toDouble(), e.value.bpm);
     }).toList();
 
-    final minY = (readings.map((r) => r.value).reduce((a, b) => a < b ? a : b) - 10)
+    final minY = (readings.map((r) => r.bpm).reduce((a, b) => a < b ? a : b) - 10)
         .clamp(0.0, double.infinity);
-    final maxY = readings.map((r) => r.value).reduce((a, b) => a > b ? a : b) + 10;
+    final maxY = readings.map((r) => r.bpm).reduce((a, b) => a > b ? a : b) + 10;
 
     return Container(
       decoration: AppTheme.cardDecoration(),
@@ -454,7 +462,7 @@ class _SparklineCard extends StatelessWidget {
   }
 }
 
-// ── About HRV card ────────────────────────────────────────────────────────────
+// ── About heart rate card ─────────────────────────────────────────────────────
 
 class _AboutCard extends StatelessWidget {
   const _AboutCard();
@@ -476,26 +484,25 @@ class _AboutCard extends StatelessWidget {
               const Icon(Icons.favorite_rounded,
                   color: AppColors.primary, size: 18),
               const SizedBox(width: 8),
-              Text('About HRV',
+              Text('Heart Rate Zones',
                   style:
                       AppType.h2.copyWith(fontSize: 16, color: AppColors.primary)),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Heart Rate Variability (SDNN) measures the variation in time between each heartbeat. '
-            'Higher values generally reflect better recovery and lower stress. '
-            'Your Apple Watch records HRV automatically throughout the day.',
+            'Your Apple Watch measures heart rate continuously and syncs it to Apple Health. '
+            'aria reads the latest value every 5 seconds so you can monitor your effort during a walk.',
             style: AppType.body.copyWith(fontSize: 14, height: 1.5),
           ),
           const SizedBox(height: AppSpacing.sm),
-          _RangeRow(label: '> 80 ms', desc: 'Very relaxed / high fitness',
+          _RangeRow(label: '< 60 BPM', desc: 'Resting',
               color: AppColors.connected),
-          _RangeRow(label: '50–80 ms', desc: 'Balanced',
+          _RangeRow(label: '60–100 BPM', desc: 'Normal',
               color: AppColors.primary),
-          _RangeRow(label: '20–50 ms', desc: 'Moderate stress',
+          _RangeRow(label: '100–140 BPM', desc: 'Elevated / active',
               color: AppColors.cue),
-          _RangeRow(label: '< 20 ms', desc: 'Elevated stress',
+          _RangeRow(label: '> 140 BPM', desc: 'High intensity',
               color: AppColors.notConnected),
         ],
       ),
@@ -562,7 +569,7 @@ class _UnavailableCard extends StatelessWidget {
               style: AppType.h2, textAlign: TextAlign.center),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'HRV monitoring via Apple Watch is only available on iPhone. '
+            'Live heart rate via Apple Watch is only available on iPhone. '
             'Open this app on your iPhone paired with an Apple Watch to use this feature.',
             style: AppType.body.copyWith(fontSize: 15),
             textAlign: TextAlign.center,

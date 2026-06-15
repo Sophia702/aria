@@ -506,7 +506,7 @@ class _WatchHrvTile extends StatelessWidget {
                   children: [
                     Text('Apple Watch',
                         style: AppType.h2.copyWith(fontSize: 17)),
-                    Text('Heart Rate Variability',
+                    Text('Live Heart Rate',
                         style: AppType.label),
                   ],
                 ),
