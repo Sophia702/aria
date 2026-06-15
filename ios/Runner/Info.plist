@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>aria reads your heart rate from Apple Health to show live BPM during walks.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>aria does not write health data.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>aria uses the microphone for voice commands so you can control the app and start sessions hands-free.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
