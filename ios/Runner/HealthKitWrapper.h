@@ -7,7 +7,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (void)requestAuthorizationWithStore:(HKHealthStore *)store
                             readTypes:(NSSet<HKObjectType *> *)readTypes
-                           completion:(void (^)(BOOL success))completion;
+                           completion:(void (^)(BOOL success))completion
+    NS_SWIFT_NAME(requestAuth(store:readTypes:completion:));
 
 + (void)executeQuery:(HKQuery *)query
            withStore:(HKHealthStore *)store
