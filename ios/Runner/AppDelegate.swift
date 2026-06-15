@@ -63,22 +63,31 @@ import UIKit
     guard HKHealthStore.isHealthDataAvailable(),
           let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate)
     else {
+      NSLog("[aria] HealthKit not available")
       result(nil)
       return
     }
-    let start = Date().addingTimeInterval(-600)
+    // Search the last 2 hours so we catch even infrequent watch syncs.
+    let start = Date().addingTimeInterval(-7200)
     let predicate = HKQuery.predicateForSamples(
       withStart: start, end: Date(), options: .strictEndDate)
     let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
     let query = HKSampleQuery(
       sampleType: hrType, predicate: predicate, limit: 1, sortDescriptors: [sort]
-    ) { _, samples, _ in
+    ) { _, samples, error in
       DispatchQueue.main.async {
+        if let error = error {
+          NSLog("[aria] HR query error: %@", error.localizedDescription)
+          result(nil)
+          return
+        }
         guard let sample = samples?.first as? HKQuantitySample else {
+          NSLog("[aria] No HR samples found in last 2 hours")
           result(nil)
           return
         }
         let bpm = sample.quantity.doubleValue(for: HKUnit(from: "count/min"))
+        NSLog("[aria] HR reading: %.0f BPM from %@", bpm, sample.endDate.description)
         result(bpm)
       }
     }
