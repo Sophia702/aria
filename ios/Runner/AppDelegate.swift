@@ -6,6 +6,8 @@ import UIKit
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
 
   private let healthStore = HKHealthStore()
+  // Retained as a property so it isn't deallocated after setup.
+  private var heartRateChannel: FlutterMethodChannel?
 
   override func application(
     _ application: UIApplication,
@@ -16,32 +18,41 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    setupHeartRateChannel(registry: engineBridge.pluginRegistry)
-  }
+    NSLog("[aria] didInitializeImplicitFlutterEngine — setting up heart rate channel")
 
-  // MARK: – Heart Rate method channel
+    // Prefer getting the binary messenger straight from the FlutterEngine.
+    // Falling back to a named registrar if the cast doesn't work.
+    let messenger: FlutterBinaryMessenger
+    if let engine = engineBridge.pluginRegistry as? FlutterEngine {
+      NSLog("[aria] using engine.binaryMessenger")
+      messenger = engine.binaryMessenger
+    } else if let reg = engineBridge.pluginRegistry.registrar(forPlugin: "AriaHeartRate") {
+      NSLog("[aria] using registrar.messenger()")
+      messenger = reg.messenger()
+    } else {
+      NSLog("[aria] ERROR — could not obtain binary messenger; heart rate channel not set up")
+      return
+    }
 
-  private func setupHeartRateChannel(registry: FlutterPluginRegistry) {
-    guard let registrar = registry.registrar(forPlugin: "AriaHeartRate") else { return }
-    let channel = FlutterMethodChannel(
-      name: "aria/heartrate",
-      binaryMessenger: registrar.messenger()
-    )
+    let channel = FlutterMethodChannel(name: "aria/heartrate", binaryMessenger: messenger)
+    heartRateChannel = channel
     channel.setMethodCallHandler { [weak self] call, result in
+      NSLog("[aria] channel call: %@", call.method)
       guard let self = self else { return }
       switch call.method {
-      case "requestAuth":
-        self.requestAuth(result: result)
-      case "latestBPM":
-        self.latestBPM(result: result)
-      default:
-        result(FlutterMethodNotImplemented)
+      case "requestAuth": self.requestAuth(result: result)
+      case "latestBPM":   self.latestBPM(result: result)
+      default:            result(FlutterMethodNotImplemented)
       }
     }
+    NSLog("[aria] heart rate channel ready")
   }
+
+  // MARK: – HealthKit
 
   private func requestAuth(result: @escaping FlutterResult) {
     guard HKHealthStore.isHealthDataAvailable() else {
+      NSLog("[aria] HealthKit not available on this device")
       result(false)
       return
     }
@@ -49,12 +60,12 @@ import UIKit
       result(false)
       return
     }
-    // Use the ObjC wrapper so NSExceptions (e.g. missing purpose strings on iOS 26)
-    // are caught with @try/@catch rather than crashing the process.
+    NSLog("[aria] requesting HealthKit authorization…")
     HealthKitWrapper.requestAuth(
       store: healthStore,
       readTypes: [hrType]
     ) { success in
+      NSLog("[aria] HealthKit auth result: %d", success)
       result(success)
     }
   }
@@ -67,7 +78,7 @@ import UIKit
       result(nil)
       return
     }
-    // Search the last 2 hours so we catch even infrequent watch syncs.
+    // Search the last 2 hours so infrequent watch syncs are still caught.
     let start = Date().addingTimeInterval(-7200)
     let predicate = HKQuery.predicateForSamples(
       withStart: start, end: Date(), options: .strictEndDate)
@@ -82,12 +93,12 @@ import UIKit
           return
         }
         guard let sample = samples?.first as? HKQuantitySample else {
-          NSLog("[aria] No HR samples found in last 2 hours")
+          NSLog("[aria] no HR samples found in last 2 hours")
           result(nil)
           return
         }
         let bpm = sample.quantity.doubleValue(for: HKUnit(from: "count/min"))
-        NSLog("[aria] HR reading: %.0f BPM from %@", bpm, sample.endDate.description)
+        NSLog("[aria] HR reading: %.0f BPM (from %@)", bpm, sample.endDate.description)
         result(bpm)
       }
     }
