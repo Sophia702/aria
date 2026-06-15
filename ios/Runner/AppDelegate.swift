@@ -52,7 +52,7 @@ import UIKit
     // Use the ObjC wrapper so NSExceptions (e.g. missing purpose strings on iOS 26)
     // are caught with @try/@catch rather than crashing the process.
     HealthKitWrapper.requestAuthorization(
-      withStore: healthStore,
+      with: healthStore,
       readTypes: [hrType]
     ) { success in
       result(success)
