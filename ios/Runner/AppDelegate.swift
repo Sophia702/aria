@@ -6,7 +6,7 @@ import UIKit
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
 
   private let healthStore = HKHealthStore()
-  // Retained as a property so it isn't deallocated after setup.
+  // Retained as a property so ARC doesn't deallocate the channel.
   private var heartRateChannel: FlutterMethodChannel?
 
   override func application(
@@ -18,22 +18,9 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    NSLog("[aria] didInitializeImplicitFlutterEngine — setting up heart rate channel")
 
-    // Prefer getting the binary messenger straight from the FlutterEngine.
-    // Falling back to a named registrar if the cast doesn't work.
-    let messenger: FlutterBinaryMessenger
-    if let engine = engineBridge.pluginRegistry as? FlutterEngine {
-      NSLog("[aria] using engine.binaryMessenger")
-      messenger = engine.binaryMessenger
-    } else if let reg = engineBridge.pluginRegistry.registrar(forPlugin: "AriaHeartRate") {
-      NSLog("[aria] using registrar.messenger()")
-      messenger = reg.messenger()
-    } else {
-      NSLog("[aria] ERROR — could not obtain binary messenger; heart rate channel not set up")
-      return
-    }
-
+    // applicationRegistrar is the correct API for app-level (non-plugin) channels.
+    let messenger = engineBridge.applicationRegistrar.messenger()
     let channel = FlutterMethodChannel(name: "aria/heartrate", binaryMessenger: messenger)
     heartRateChannel = channel
     channel.setMethodCallHandler { [weak self] call, result in
@@ -45,14 +32,14 @@ import UIKit
       default:            result(FlutterMethodNotImplemented)
       }
     }
-    NSLog("[aria] heart rate channel ready")
+    NSLog("[aria] heart rate channel ready on applicationRegistrar")
   }
 
   // MARK: – HealthKit
 
   private func requestAuth(result: @escaping FlutterResult) {
     guard HKHealthStore.isHealthDataAvailable() else {
-      NSLog("[aria] HealthKit not available on this device")
+      NSLog("[aria] HealthKit not available")
       result(false)
       return
     }
@@ -74,11 +61,9 @@ import UIKit
     guard HKHealthStore.isHealthDataAvailable(),
           let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate)
     else {
-      NSLog("[aria] HealthKit not available")
       result(nil)
       return
     }
-    // Search the last 2 hours so infrequent watch syncs are still caught.
     let start = Date().addingTimeInterval(-7200)
     let predicate = HKQuery.predicateForSamples(
       withStart: start, end: Date(), options: .strictEndDate)
@@ -98,7 +83,7 @@ import UIKit
           return
         }
         let bpm = sample.quantity.doubleValue(for: HKUnit(from: "count/min"))
-        NSLog("[aria] HR reading: %.0f BPM (from %@)", bpm, sample.endDate.description)
+        NSLog("[aria] HR reading: %.0f BPM", bpm)
         result(bpm)
       }
     }
