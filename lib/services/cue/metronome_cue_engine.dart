@@ -8,31 +8,36 @@ import 'package:path_provider/path_provider.dart';
 
 import 'cue_engine.dart';
 
+enum BeatSound {
+  click,      // crisp 1400 Hz transient
+  bell,       // soft C5 bell with harmonic overtone
+  woodblock,  // low percussive thud
+  chiptune,   // 8-bit square-wave bloop (Minecraft-inspired)
+}
+
 /// MVP cue: a continuous metronome.
 ///
-/// Instead of bundling an audio asset, we SYNTHESISE one beat as a 16-bit PCM
-/// WAV at the exact target tempo and loop it gaplessly (LoopMode.one). Changing
-/// tempo regenerates the one-beat buffer, so timing stays sample-accurate and
-/// there's no binary asset to ship.
-///
-/// Background playback (screen off) will be added in M2 via `audio_service`
-/// (Android foreground service); for the M1 emulator demo, foreground playback
-/// through just_audio is enough.
+/// Synthesises one beat as a 16-bit PCM WAV at the exact target tempo and
+/// loops it gaplessly (LoopMode.one). Changing tempo or sound regenerates
+/// the buffer so timing stays sample-accurate with no binary assets to ship.
 class MetronomeCueEngine implements CueEngine {
   MetronomeCueEngine();
 
   final AudioPlayer _player = AudioPlayer();
-  static const int _sampleRate = 22050; // small files, plenty for a click
+  static const int _sampleRate = 22050;
   double _bpm = 100;
   double _volume = 0.9;
   bool _playing = false;
   int _fileSeq = 0;
+  BeatSound _sound = BeatSound.bell;
 
   @override
   bool get isPlaying => _playing;
 
   @override
   double get bpm => _bpm;
+
+  BeatSound get sound => _sound;
 
   @override
   Future<void> init() async {
@@ -45,9 +50,6 @@ class MetronomeCueEngine implements CueEngine {
     _bpm = bpm.clamp(30, 240);
     await _loadBeat();
     await _player.setVolume(_volume);
-    // Do NOT await: with LoopMode.one the player loops forever, so play()'s
-    // future only completes when the cue is stopped. Awaiting it would block
-    // the caller (e.g. startSession) indefinitely.
     unawaited(_player.play());
     _playing = true;
   }
@@ -56,9 +58,16 @@ class MetronomeCueEngine implements CueEngine {
   Future<void> setTempo(double bpm) async {
     _bpm = bpm.clamp(30, 240);
     if (_playing) {
-      final wasPlaying = _player.playing;
       await _loadBeat();
-      if (wasPlaying) unawaited(_player.play());
+      unawaited(_player.play());
+    }
+  }
+
+  Future<void> setSound(BeatSound sound) async {
+    _sound = sound;
+    if (_playing) {
+      await _loadBeat();
+      unawaited(_player.play());
     }
   }
 
@@ -80,37 +89,93 @@ class MetronomeCueEngine implements CueEngine {
     await _player.dispose();
   }
 
-  /// Write a fresh one-beat WAV for the current bpm and load it looped.
   Future<void> _loadBeat() async {
-    final bytes = _encodeBeatWav(_bpm, _sampleRate);
+    final bytes = _encodeBeatWav(_bpm, _sampleRate, _sound);
     final dir = await getTemporaryDirectory();
-    // New filename each time so just_audio reloads rather than caching.
     final file = File('${dir.path}/aria_click_${_fileSeq++}.wav');
     await file.writeAsBytes(bytes, flush: true);
     await _player.setFilePath(file.path);
     await _player.setLoopMode(LoopMode.one);
   }
 
-  /// One beat = a short percussive click followed by silence to fill the
-  /// inter-beat interval (60/bpm seconds).
-  static Uint8List _encodeBeatWav(double bpm, int sampleRate) {
+  static Uint8List _encodeBeatWav(double bpm, int sampleRate, BeatSound sound) {
     final beatSamples = (sampleRate * 60.0 / bpm).round();
-    final pcm = Int16List(beatSamples); // zero-filled = silence
+    final pcm = Int16List(beatSamples);
 
-    const clickMs = 35;
-    const freq = 1400.0; // crisp, easy to hear over footsteps
-    final clickSamples = (sampleRate * clickMs / 1000).round();
-    for (var i = 0; i < clickSamples && i < beatSamples; i++) {
-      final t = i / sampleRate;
-      final env = exp(-t * 45); // fast exponential decay
-      final s = sin(2 * pi * freq * t) * env;
-      pcm[i] = (s * 28000).round().clamp(-32768, 32767);
+    switch (sound) {
+      case BeatSound.click:
+        _synthClick(pcm, sampleRate);
+      case BeatSound.bell:
+        _synthBell(pcm, sampleRate);
+      case BeatSound.woodblock:
+        _synthWoodblock(pcm, sampleRate);
+      case BeatSound.chiptune:
+        _synthChiptune(pcm, sampleRate);
     }
+
     return _wrapWav(pcm, sampleRate);
   }
 
-  /// Wrap mono 16-bit PCM samples in a 44-byte WAV header (little-endian,
-  /// matching ARM/x86 host byte order).
+  // ── Sound synthesis ────────────────────────────────────────────────────────
+
+  static void _synthClick(Int16List pcm, int sampleRate) {
+    const clickMs = 35;
+    const freq = 1400.0;
+    final n = (sampleRate * clickMs / 1000).round().clamp(0, pcm.length);
+    for (var i = 0; i < n; i++) {
+      final t = i / sampleRate;
+      final s = sin(2 * pi * freq * t) * exp(-t * 45);
+      pcm[i] = (s * 28000).round().clamp(-32768, 32767);
+    }
+  }
+
+  static void _synthBell(Int16List pcm, int sampleRate) {
+    const clickMs = 160;
+    const freq1 = 523.0;  // C5 fundamental
+    const freq2 = 1046.0; // C6 harmonic
+    final n = (sampleRate * clickMs / 1000).round().clamp(0, pcm.length);
+    for (var i = 0; i < n; i++) {
+      final t = i / sampleRate;
+      final s = sin(2 * pi * freq1 * t) * exp(-t * 12) * 0.65
+              + sin(2 * pi * freq2 * t) * exp(-t * 32) * 0.35;
+      pcm[i] = (s * 27000).round().clamp(-32768, 32767);
+    }
+  }
+
+  static void _synthWoodblock(Int16List pcm, int sampleRate) {
+    const clickMs = 60;
+    const freq = 320.0;
+    final n = (sampleRate * clickMs / 1000).round().clamp(0, pcm.length);
+    for (var i = 0; i < n; i++) {
+      final t = i / sampleRate;
+      // Pitched body + a touch of noise for the wood texture
+      final body = sin(2 * pi * freq * t) * exp(-t * 55);
+      final noise = (Random().nextDouble() * 2 - 1) * exp(-t * 120) * 0.25;
+      pcm[i] = ((body + noise) * 28000).round().clamp(-32768, 32767);
+    }
+  }
+
+  static void _synthChiptune(Int16List pcm, int sampleRate) {
+    // Square-wave approximation (odd harmonics) at A5 (880 Hz).
+    // Sums 6 harmonics: gives that classic 8-bit bloop.
+    const clickMs = 80;
+    const freq = 880.0;
+    final n = (sampleRate * clickMs / 1000).round().clamp(0, pcm.length);
+    for (var i = 0; i < n; i++) {
+      final t = i / sampleRate;
+      final env = exp(-t * 22);
+      double s = 0;
+      for (var h = 0; h < 6; h++) {
+        final harmonic = 2 * h + 1;
+        s += sin(2 * pi * freq * harmonic * t) / harmonic;
+      }
+      s *= (4 / pi); // normalise square-wave amplitude
+      pcm[i] = (s * env * 16000).round().clamp(-32768, 32767);
+    }
+  }
+
+  // ── WAV wrapper ───────────────────────────────────────────────────────────
+
   static Uint8List _wrapWav(Int16List samples, int sampleRate) {
     final data =
         samples.buffer.asUint8List(samples.offsetInBytes, samples.lengthInBytes);
@@ -125,13 +190,13 @@ class MetronomeCueEngine implements CueEngine {
     u32(36 + data.length);
     str('WAVE');
     str('fmt ');
-    u32(16); // PCM fmt chunk size
-    u16(1); // audio format = PCM
-    u16(1); // channels = mono
+    u32(16);
+    u16(1); // PCM
+    u16(1); // mono
     u32(sampleRate);
-    u32(sampleRate * 2); // byte rate = sampleRate * channels * bytesPerSample
-    u16(2); // block align
-    u16(16); // bits per sample
+    u32(sampleRate * 2);
+    u16(2);
+    u16(16);
     str('data');
     u32(data.length);
     out.add(data);
