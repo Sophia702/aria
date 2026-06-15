@@ -49,8 +49,13 @@ import UIKit
       result(false)
       return
     }
-    healthStore.requestAuthorization(toShare: [], read: [hrType]) { success, _ in
-      DispatchQueue.main.async { result(success) }
+    // Use the ObjC wrapper so NSExceptions (e.g. missing purpose strings on iOS 26)
+    // are caught with @try/@catch rather than crashing the process.
+    HealthKitWrapper.requestAuthorization(
+      withStore: healthStore,
+      readTypes: [hrType]
+    ) { success in
+      result(success)
     }
   }
 
@@ -61,7 +66,7 @@ import UIKit
       result(nil)
       return
     }
-    let start = Date().addingTimeInterval(-600) // last 10 min
+    let start = Date().addingTimeInterval(-600)
     let predicate = HKQuery.predicateForSamples(
       withStart: start, end: Date(), options: .strictEndDate)
     let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
