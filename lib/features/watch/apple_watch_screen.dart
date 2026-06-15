@@ -352,20 +352,7 @@ class _HrvCard extends StatelessWidget {
           ),
           if (bpm == null) ...[
             const SizedBox(height: AppSpacing.lg),
-            Row(
-              children: [
-                const Icon(Icons.info_outline_rounded,
-                    color: AppColors.inkFaint, size: 15),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Make sure your Apple Watch is worn and Health access is authorised.',
-                    style: AppType.label.copyWith(
-                        color: AppColors.inkFaint, height: 1.4),
-                  ),
-                ),
-              ],
-            ),
+            _GrantAccessButton(),
           ],
         ],
       ),
@@ -538,6 +525,84 @@ class _RangeRow extends StatelessWidget {
           Text(desc, style: AppType.label),
         ],
       ),
+    );
+  }
+}
+
+// ── Grant access button ───────────────────────────────────────────────────────
+
+class _GrantAccessButton extends StatefulWidget {
+  @override
+  State<_GrantAccessButton> createState() => _GrantAccessButtonState();
+}
+
+class _GrantAccessButtonState extends State<_GrantAccessButton> {
+  bool _loading = false;
+  String? _message;
+
+  Future<void> _request() async {
+    setState(() { _loading = true; _message = null; });
+    final auth = await HrvService.requestAuth();
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _message = switch (auth) {
+        HrvAuthState.authorized => 'Access granted! Data will appear shortly.',
+        HrvAuthState.denied     => 'Access denied. Enable in Settings → Health → aria.',
+        HrvAuthState.unknown    => 'Channel not ready — try again in a moment.',
+      };
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: _loading ? null : _request,
+            icon: _loading
+                ? const SizedBox(
+                    width: 16, height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.health_and_safety_rounded, size: 18),
+            label: Text(_loading ? 'Requesting…' : 'Grant Health Access'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.md)),
+            ),
+          ),
+        ),
+        if (_message != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(_message!,
+              style: AppType.label.copyWith(
+                  color: _message!.startsWith('Access granted')
+                      ? AppColors.connected
+                      : AppColors.notConnected,
+                  height: 1.4)),
+        ],
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: [
+            const Icon(Icons.info_outline_rounded,
+                color: AppColors.inkFaint, size: 14),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Make sure your Apple Watch is worn and syncing to Health.',
+                style: AppType.label.copyWith(
+                    color: AppColors.inkFaint, height: 1.4, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

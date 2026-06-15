@@ -22,6 +22,8 @@ class HrvService {
     try {
       final ok = await _channel.invokeMethod<bool>('requestAuth') ?? false;
       return ok ? HrvAuthState.authorized : HrvAuthState.denied;
+    } on MissingPluginException {
+      return HrvAuthState.unknown; // channel not ready yet — different from denied
     } catch (_) {
       return HrvAuthState.denied;
     }
@@ -38,36 +40,35 @@ class HrvService {
     }
   }
 
-  // Polls every 5 s. On any error, yields null so the UI shows "Searching".
+  // Polls every 5 s. Retries auth indefinitely so granting permission later works.
   static Stream<HeartRateReading?> liveStream() async* {
     if (!Platform.isIOS) {
       yield null;
       return;
     }
-    try {
+    while (true) {
       final auth = await requestAuth();
-      if (auth != HrvAuthState.authorized) {
-        yield null;
-        return;
-      }
-      HeartRateReading? last;
-      while (true) {
-        try {
-          final reading = await latestReading();
-          if (reading != null &&
-              (last == null || reading.timestamp != last.timestamp)) {
-            last = reading;
-            yield reading;
-          } else if (reading == null && last == null) {
-            yield null;
-          }
-        } catch (_) {
+      if (auth == HrvAuthState.authorized) break;
+      // Not yet authorized — keep waiting. Yields null so the UI shows Searching.
+      yield null;
+      await Future.delayed(const Duration(seconds: 3));
+    }
+    // Authorized — start polling.
+    HeartRateReading? last;
+    while (true) {
+      try {
+        final reading = await latestReading();
+        if (reading != null &&
+            (last == null || reading.timestamp != last.timestamp)) {
+          last = reading;
+          yield reading;
+        } else if (reading == null && last == null) {
           yield null;
         }
-        await Future.delayed(const Duration(seconds: 5));
+      } catch (_) {
+        yield null;
       }
-    } catch (_) {
-      yield null;
+      await Future.delayed(const Duration(seconds: 5));
     }
   }
 }
