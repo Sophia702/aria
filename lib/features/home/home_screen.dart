@@ -11,6 +11,7 @@ import '../../services/sensors/sensor_source.dart';
 import '../../services/voice/voice_controller.dart';
 import '../../widgets/aria_logo.dart';
 import '../../widgets/pulse_ring.dart';
+import '../imu/imu_screen.dart';
 import '../session/start_walk.dart';
 import '../watch/apple_watch_screen.dart';
 
@@ -237,6 +238,11 @@ class HomeScreen extends ConsumerWidget {
 
               // ── Apple Watch HRV card ──────────────────────────────────
               _WatchHrvTile(),
+
+              const SizedBox(height: AppSpacing.sm),
+
+              // ── Arduino IMU card ──────────────────────────────────────
+              _ImuTile(),
             ],
           ),
         ),
@@ -508,6 +514,55 @@ class _WatchHrvTile extends StatelessWidget {
                         style: AppType.h2.copyWith(fontSize: 17)),
                     Text('Live Heart Rate',
                         style: AppType.label),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.inkFaint, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImuTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Arduino IMU live data',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ImuScreen()),
+        ),
+        child: Container(
+          decoration: AppTheme.cardDecoration(),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                ),
+                child: const Icon(Icons.developer_board_rounded,
+                    color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Arduino IMU',
+                        style: AppType.h2.copyWith(fontSize: 17)),
+                    Text('Live IMU data', style: AppType.label),
                   ],
                 ),
               ),

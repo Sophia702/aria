@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>aria uses Bluetooth to connect to the Arduino Nano 33 BLE Sense and stream live IMU sensor data.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>aria reads your heart rate from Apple Health to show live BPM during walks.</string>
 	<key>NSHealthUpdateUsageDescription</key>

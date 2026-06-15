@@ -8,6 +8,7 @@ import '../services/intervention/default_intervention_manager.dart';
 import '../services/intervention/intervention_manager.dart';
 import '../services/model/fog_model.dart';
 import '../services/model/mock_fog_model.dart';
+import '../services/sensors/arduino_ble_service.dart';
 import '../services/sensors/mock_sensor_source.dart';
 import '../services/sensors/sensor_source.dart';
 import '../services/session/session_controller.dart';
@@ -94,3 +95,9 @@ class UserNameNotifier extends AsyncNotifier<String> {
   }
 }
 final userNameProvider = AsyncNotifierProvider<UserNameNotifier, String>(UserNameNotifier.new);
+
+final arduinoBleProvider = Provider<ArduinoBleService>((ref) {
+  final s = ArduinoBleService();
+  ref.onDispose(() => s.dispose());
+  return s;
+});
