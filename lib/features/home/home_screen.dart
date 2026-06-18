@@ -15,6 +15,7 @@ import '../cadence/cadence_screen.dart';
 import '../imu/imu_screen.dart';
 import '../session/start_walk.dart';
 import '../watch/apple_watch_screen.dart';
+import '../watch/watch_cadence_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -239,6 +240,11 @@ class HomeScreen extends ConsumerWidget {
 
               // ── Apple Watch HRV card ──────────────────────────────────
               _WatchHrvTile(),
+
+              const SizedBox(height: AppSpacing.sm),
+
+              // ── Apple Watch Cadence card ──────────────────────────────
+              _WatchCadenceTile(),
 
               const SizedBox(height: AppSpacing.sm),
 
@@ -520,6 +526,55 @@ class _WatchHrvTile extends StatelessWidget {
                         style: AppType.h2.copyWith(fontSize: 17)),
                     Text('Live Heart Rate',
                         style: AppType.label),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.inkFaint, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WatchCadenceTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Apple Watch Cadence',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const WatchCadenceScreen()),
+        ),
+        child: Container(
+          decoration: AppTheme.cardDecoration(),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                ),
+                child: const Icon(Icons.watch_rounded,
+                    color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Watch Cadence',
+                        style: AppType.h2.copyWith(fontSize: 17)),
+                    Text('Step pace via Apple Watch', style: AppType.label),
                   ],
                 ),
               ),
