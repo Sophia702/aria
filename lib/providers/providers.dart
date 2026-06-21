@@ -1,7 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/models/walk_session.dart';
+import '../data/models/walk_stats.dart';
 import '../data/persistence/app_prefs.dart';
+import '../data/persistence/session_store.dart';
 import '../services/cue/cue_engine.dart';
 import '../services/cue/metronome_cue_engine.dart';
 import '../services/intervention/default_intervention_manager.dart';
@@ -13,8 +16,8 @@ import '../services/sensors/arduino_ble_service.dart';
 import '../services/sensors/sensor_source.dart';
 import '../services/session/session_controller.dart';
 import '../services/session/session_state.dart';
-import '../services/voice/keyword_voice_assistant.dart';
 import '../services/voice/mock_voice_assistant.dart';
+import '../services/voice/openai_voice_assistant.dart';
 import '../services/voice/voice_assistant.dart';
 
 /// Global navigator key so the voice agent can drive navigation from outside the
@@ -66,7 +69,7 @@ final interventionManagerProvider = Provider<InterventionManager>((ref) {
 
 final voiceAssistantProvider = Provider<VoiceAssistant>((ref) {
   final VoiceAssistant v =
-      kUseMockVoice ? MockVoiceAssistant() : KeywordVoiceAssistant();
+      kUseMockVoice ? MockVoiceAssistant() : OpenAiVoiceAssistant();
   ref.onDispose(() => v.dispose());
   return v;
 });
@@ -101,3 +104,52 @@ final arduinoBleProvider = Provider<ArduinoBleService>((ref) {
   ref.onDispose(() => s.dispose());
   return s;
 });
+
+/// Locally-persisted history of completed walks. Single source of truth for
+/// Home / Progress / Summary stats.
+class SessionHistoryNotifier extends AsyncNotifier<List<WalkSession>> {
+  @override
+  Future<List<WalkSession>> build() => SessionStore.all();
+
+  Future<void> record(WalkSession s) async {
+    await SessionStore.add(s);
+    state = AsyncData(await SessionStore.all());
+  }
+
+  Future<void> clearAll() async {
+    await SessionStore.clear();
+    state = const AsyncData([]);
+  }
+}
+
+final sessionHistoryProvider =
+    AsyncNotifierProvider<SessionHistoryNotifier, List<WalkSession>>(
+        SessionHistoryNotifier.new);
+
+/// Display-ready aggregates derived from [sessionHistoryProvider].
+final walkStatsProvider = Provider<WalkStats>((ref) {
+  final sessions = ref.watch(sessionHistoryProvider).asData?.value ?? const [];
+  return WalkStats.from(sessions);
+});
+
+/// A voice-driven request to fill a profile field — the Profile screen listens
+/// and live-types the value into the matching field so the user sees the change
+/// happen in real time. `field` ∈ name/clinician/contactName/contactPhone/
+/// contactType/meds.
+class ProfileEdit {
+  final String field;
+  final String value;
+  const ProfileEdit(this.field, this.value);
+}
+
+class ProfileEditNotifier extends Notifier<ProfileEdit?> {
+  @override
+  ProfileEdit? build() => null;
+  void request(String field, String value) =>
+      state = ProfileEdit(field, value);
+  void clear() => state = null;
+}
+
+final profileEditProvider =
+    NotifierProvider<ProfileEditNotifier, ProfileEdit?>(
+        ProfileEditNotifier.new);

@@ -81,9 +81,11 @@ class ArduinoBleService {
 
     _scanSub?.cancel();
     _scanSub = FlutterBluePlus.onScanResults.listen((results) {
+      // Only surface the Arduino Nano 33 BLE — hide the dozens of unrelated
+      // "unknown" devices a raw scan picks up.
       _scanResults
         ..clear()
-        ..addAll(results);
+        ..addAll(results.where(_isArduino));
       _notify();
     });
 
@@ -103,6 +105,22 @@ class ArduinoBleService {
 
   Future<void> stopScan() async {
     await FlutterBluePlus.stopScan();
+  }
+
+  /// True only for the Arduino Nano 33 BLE — matched by the advertised IMU
+  /// service UUID (most reliable) or a recognisable device name.
+  bool _isArduino(ScanResult r) {
+    final advertisesService = r.advertisementData.serviceUuids
+        .any((u) => u.str.toLowerCase() == _serviceUuid);
+    if (advertisesService) return true;
+    final name = (r.device.platformName.isNotEmpty
+            ? r.device.platformName
+            : r.advertisementData.advName)
+        .toLowerCase();
+    if (name.isEmpty) return false;
+    return name.contains('arduino') ||
+        name.contains('nano') ||
+        name.contains('aria');
   }
 
   // ── Connect ──────────────────────────────────────────────────────────────

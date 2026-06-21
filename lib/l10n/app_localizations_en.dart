@@ -146,7 +146,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get helpRespiration => 'Help & Respiration';
 
   @override
-  String get freezeDetected => 'Freeze detected';
+  String get freezeDetected => 'Trouble detected';
 
   @override
   String get hereWithYou => 'I\'m right here with you';
@@ -334,4 +334,125 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get restartOnboarding => 'Restart onboarding';
+
+  @override
+  String get captionSteps => 'steps';
+
+  @override
+  String get captionMin => 'min';
+
+  @override
+  String get tapToConnect => 'Tap to connect';
+
+  @override
+  String get appleWatch => 'Apple Watch';
+
+  @override
+  String get liveHeartRate => 'Live Heart Rate';
+
+  @override
+  String get watchCadenceTitle => 'Watch Cadence';
+
+  @override
+  String get watchCadenceSub => 'Step pace via Apple Watch';
+
+  @override
+  String get arduinoImu => 'Arduino IMU';
+
+  @override
+  String get liveImuData => 'Live IMU data';
+
+  @override
+  String get cadenceTrackerTitle => 'Cadence Tracker';
+
+  @override
+  String get cadenceTrackerSub => 'Step pace & beat sync';
+
+  @override
+  String get birthDate => 'Birth date';
+
+  @override
+  String get selectDate => 'Select date';
+
+  @override
+  String get ageWord => 'Age';
+
+  @override
+  String get addWord => 'Add';
+
+  @override
+  String get medicationsLabel => 'Medications';
+
+  @override
+  String get typeToSearch => 'Type to search…';
+
+  @override
+  String get selectRelationship => 'Select relationship';
+
+  @override
+  String get phoneNumber => 'Phone number';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get doneWord => 'Done';
+
+  @override
+  String get clinicianOptional => 'Assigned clinician (optional)';
+
+  @override
+  String get noWalksYet => 'No walks yet';
+
+  @override
+  String get sessionsAppearHere =>
+      'Your sessions will appear here once you start walking.';
+
+  @override
+  String get noWalksRecorded => 'No walks recorded yet.';
+
+  @override
+  String get comingSoon => 'Functionality coming soon';
+
+  @override
+  String get musicNotAvailable => 'Music selection isn’t available just yet.';
+
+  @override
+  String get changeBeat => 'Change beat';
+
+  @override
+  String get tapToChangeBeat => 'Tap to change beat';
+
+  @override
+  String get breatheIn => 'Breathe in';
+
+  @override
+  String get breatheOut => 'Breathe out';
+
+  @override
+  String get holdBreath => 'Hold';
+
+  @override
+  String get breatheWord => 'Breathe';
+
+  @override
+  String get followCircle =>
+      'Follow the circle. In through your nose, out through your mouth.';
+
+  @override
+  String get feelingBetter => 'I\'m feeling better, continue';
+
+  @override
+  String get emergencyContactLabel => 'Emergency contact';
+
+  @override
+  String get noContactSaved =>
+      'No emergency contact saved. Add one in your profile.';
+
+  @override
+  String get enableNotifications =>
+      'Enable notifications for aria in Settings to receive reminders.';
+
+  @override
+  String get changesSaved => 'Changes saved';
 }

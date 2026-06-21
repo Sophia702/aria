@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/a11y/a11y.dart';
 import '../../core/theme/app_theme.dart';
@@ -23,7 +24,18 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _volume = 80;
   int _tempo = 108;
-  bool _reminders = true;
+  bool _reminders = false;
+
+  @override
+  void initState() {
+    super.initState();
+    AppPrefs.cueVolume().then((v) {
+      if (mounted) setState(() => _volume = v);
+    });
+    AppPrefs.remindersEnabled().then((v) {
+      if (mounted) setState(() => _reminders = v);
+    });
+  }
 
   void _setVoice(bool v) {
     final c = ref.read(voiceControllerProvider.notifier);
@@ -33,6 +45,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       c.disable();
     }
     AppPrefs.setVoiceEnabled(v);
+  }
+
+  // Apply the cue volume to the live audio engine and persist it.
+  void _setVolume(int v) {
+    final clamped = v.clamp(0, 100);
+    setState(() => _volume = clamped);
+    AppPrefs.setCueVolume(clamped);
+    ref.read(cueEngineProvider).setVolume(clamped / 100.0);
+  }
+
+  // Turning reminders on requests the OS notification permission; if it's
+  // permanently denied, we send the user to the system settings to enable it.
+  Future<void> _setReminders(bool v) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    if (v) {
+      var status = await Permission.notification.status;
+      if (!status.isGranted) {
+        status = await Permission.notification.request();
+      }
+      if (!status.isGranted) {
+        if (!mounted) return;
+        setState(() => _reminders = false);
+        await AppPrefs.setRemindersEnabled(false);
+        messenger.showSnackBar(SnackBar(
+          content: Text(l10n?.enableNotifications ??
+              'Enable notifications for aria in Settings to receive reminders.'),
+        ));
+        await openAppSettings();
+        return;
+      }
+    }
+    if (!mounted) return;
+    setState(() => _reminders = v);
+    await AppPrefs.setRemindersEnabled(v);
   }
 
   @override
@@ -50,7 +97,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _VolumeControl(
             label: l10n?.cueVolume ?? 'Cue volume',
             value: _volume,
-            onChanged: (v) => setState(() => _volume = v.clamp(0, 100)),
+            onChanged: _setVolume,
           ),
           const Divider(height: AppSpacing.lg, color: AppColors.surfaceDeep),
           _StepperRow(
@@ -81,9 +128,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             trailing: Switch(
               value: _reminders,
               activeThumbColor: AppColors.primary,
-              onChanged: (v) => setState(() => _reminders = v),
+              onChanged: _setReminders,
             ),
-            onTap: () => setState(() => _reminders = !_reminders),
+            onTap: () => _setReminders(!_reminders),
           ),
         ]),
         const SizedBox(height: AppSpacing.md),

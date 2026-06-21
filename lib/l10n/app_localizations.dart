@@ -371,7 +371,7 @@ abstract class AppLocalizations {
   /// No description provided for @freezeDetected.
   ///
   /// In en, this message translates to:
-  /// **'Freeze detected'**
+  /// **'Trouble detected'**
   String get freezeDetected;
 
   /// No description provided for @hereWithYou.
@@ -745,6 +745,240 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restart onboarding'**
   String get restartOnboarding;
+
+  /// No description provided for @captionSteps.
+  ///
+  /// In en, this message translates to:
+  /// **'steps'**
+  String get captionSteps;
+
+  /// No description provided for @captionMin.
+  ///
+  /// In en, this message translates to:
+  /// **'min'**
+  String get captionMin;
+
+  /// No description provided for @tapToConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to connect'**
+  String get tapToConnect;
+
+  /// No description provided for @appleWatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple Watch'**
+  String get appleWatch;
+
+  /// No description provided for @liveHeartRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Heart Rate'**
+  String get liveHeartRate;
+
+  /// No description provided for @watchCadenceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch Cadence'**
+  String get watchCadenceTitle;
+
+  /// No description provided for @watchCadenceSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Step pace via Apple Watch'**
+  String get watchCadenceSub;
+
+  /// No description provided for @arduinoImu.
+  ///
+  /// In en, this message translates to:
+  /// **'Arduino IMU'**
+  String get arduinoImu;
+
+  /// No description provided for @liveImuData.
+  ///
+  /// In en, this message translates to:
+  /// **'Live IMU data'**
+  String get liveImuData;
+
+  /// No description provided for @cadenceTrackerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cadence Tracker'**
+  String get cadenceTrackerTitle;
+
+  /// No description provided for @cadenceTrackerSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Step pace & beat sync'**
+  String get cadenceTrackerSub;
+
+  /// No description provided for @birthDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Birth date'**
+  String get birthDate;
+
+  /// No description provided for @selectDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Select date'**
+  String get selectDate;
+
+  /// No description provided for @ageWord.
+  ///
+  /// In en, this message translates to:
+  /// **'Age'**
+  String get ageWord;
+
+  /// No description provided for @addWord.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get addWord;
+
+  /// No description provided for @medicationsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Medications'**
+  String get medicationsLabel;
+
+  /// No description provided for @typeToSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Type to search…'**
+  String get typeToSearch;
+
+  /// No description provided for @selectRelationship.
+  ///
+  /// In en, this message translates to:
+  /// **'Select relationship'**
+  String get selectRelationship;
+
+  /// No description provided for @phoneNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone number'**
+  String get phoneNumber;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @doneWord.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get doneWord;
+
+  /// No description provided for @clinicianOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned clinician (optional)'**
+  String get clinicianOptional;
+
+  /// No description provided for @noWalksYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No walks yet'**
+  String get noWalksYet;
+
+  /// No description provided for @sessionsAppearHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Your sessions will appear here once you start walking.'**
+  String get sessionsAppearHere;
+
+  /// No description provided for @noWalksRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'No walks recorded yet.'**
+  String get noWalksRecorded;
+
+  /// No description provided for @comingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Functionality coming soon'**
+  String get comingSoon;
+
+  /// No description provided for @musicNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Music selection isn’t available just yet.'**
+  String get musicNotAvailable;
+
+  /// No description provided for @changeBeat.
+  ///
+  /// In en, this message translates to:
+  /// **'Change beat'**
+  String get changeBeat;
+
+  /// No description provided for @tapToChangeBeat.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to change beat'**
+  String get tapToChangeBeat;
+
+  /// No description provided for @breatheIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Breathe in'**
+  String get breatheIn;
+
+  /// No description provided for @breatheOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Breathe out'**
+  String get breatheOut;
+
+  /// No description provided for @holdBreath.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold'**
+  String get holdBreath;
+
+  /// No description provided for @breatheWord.
+  ///
+  /// In en, this message translates to:
+  /// **'Breathe'**
+  String get breatheWord;
+
+  /// No description provided for @followCircle.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow the circle. In through your nose, out through your mouth.'**
+  String get followCircle;
+
+  /// No description provided for @feelingBetter.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m feeling better, continue'**
+  String get feelingBetter;
+
+  /// No description provided for @emergencyContactLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency contact'**
+  String get emergencyContactLabel;
+
+  /// No description provided for @noContactSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'No emergency contact saved. Add one in your profile.'**
+  String get noContactSaved;
+
+  /// No description provided for @enableNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications for aria in Settings to receive reminders.'**
+  String get enableNotifications;
+
+  /// No description provided for @changesSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes saved'**
+  String get changesSaved;
 }
 
 class _AppLocalizationsDelegate

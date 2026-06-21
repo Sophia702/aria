@@ -59,7 +59,7 @@ class FloatingNav extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(_barHeight / 2),
                         child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
                           child: const SizedBox.expand(),
                         ),
                       ),
@@ -137,10 +137,36 @@ class _NotchedBarPainter extends CustomPainter {
     // Intersect to keep the rounded pill ends while using the smooth notch.
     final path = Path.combine(PathOperation.intersect, notched, pill);
 
-    canvas.drawShadow(path, const Color(0x55394A40), 8, false);
-    canvas.drawPath(path, Paint()
-      ..color = AppColors.card.withValues(alpha: 0.82)
-      ..isAntiAlias = true);
+    // Soft green-cast drop shadow so the bar lifts off the warm paper.
+    canvas.drawShadow(path, const Color(0x55173D30), 10, false);
+
+    // Frosted pale-green glass fill — translucent so the backdrop blur reads
+    // through, but green enough to separate from the warm-paper screens.
+    canvas.drawPath(
+        path,
+        Paint()
+          ..color = const Color(0xFFD7E8DD).withValues(alpha: 0.72)
+          ..isAntiAlias = true);
+
+    // Top sheen — a soft white highlight fading down for the liquid-glass look.
+    canvas.drawPath(
+        path,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0x4DFFFFFF), Color(0x00FFFFFF)],
+          ).createShader(Offset.zero & size)
+          ..isAntiAlias = true);
+
+    // Crisp green-tinted hairline edge to define the glass rim and make it pop.
+    canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2
+          ..color = AppColors.primary.withValues(alpha: 0.30)
+          ..isAntiAlias = true);
   }
 
   @override

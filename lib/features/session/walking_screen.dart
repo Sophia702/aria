@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/beats.dart';
 import '../../data/models/fog_prediction.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/providers.dart';
@@ -27,15 +28,65 @@ class WalkingScreen extends ConsumerStatefulWidget {
 class _WalkingScreenState extends ConsumerState<WalkingScreen> {
   bool _interventionOpen = false;
   final _player = AudioPlayer();
+  late String _beatName;
 
   @override
   void initState() {
     super.initState();
+    // Derive the starting beat name from the sound that was chosen.
+    final match = kBeats.where((b) => b.file == widget.soundFile);
+    _beatName = match.isNotEmpty ? match.first.name : 'Steady';
     if (widget.soundFile != null) {
       _player.setAsset(widget.soundFile!);
       _player.setLoopMode(LoopMode.one);
       _player.play();
     }
+  }
+
+  /// Tapping the now-playing strip opens a picker to switch the beat live:
+  /// changes the cue tempo and swaps the looping music without leaving the walk.
+  Future<void> _pickBeat() async {
+    final l10n = AppLocalizations.of(context);
+    final chosen = await showModalBottomSheet<Beat>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: AppSpacing.md),
+            Text(l10n?.changeBeat ?? 'Change beat',
+                style: AppType.h2.copyWith(fontSize: 17)),
+            const SizedBox(height: AppSpacing.sm),
+            for (final b in kBeats)
+              ListTile(
+                leading: const Icon(Icons.music_note_rounded,
+                    color: AppColors.primary),
+                title: Text(b.name, style: AppType.h2.copyWith(fontSize: 17)),
+                subtitle: Text('${b.sub} · ${b.bpm} bpm',
+                    style: AppType.label),
+                trailing: b.name == _beatName
+                    ? const Icon(Icons.check_rounded,
+                        color: AppColors.primary)
+                    : null,
+                onTap: () => Navigator.pop(ctx, b),
+              ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    await ref
+        .read(sessionControllerProvider.notifier)
+        .changeTempo(chosen.bpm.toDouble());
+    await _player.setAsset(chosen.file);
+    await _player.setLoopMode(LoopMode.one);
+    await _player.play();
+    if (mounted) setState(() => _beatName = chosen.name);
   }
 
   @override
@@ -209,8 +260,13 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
 
                 const Spacer(),
 
-                // ── Now playing strip — waveform style ────────────────
-                _NowPlayingStrip(bpm: s.bpm, playing: s.cuePlaying),
+                // ── Now playing strip — tap to change the beat ────────
+                _NowPlayingStrip(
+                  beatName: _beatName,
+                  bpm: s.bpm,
+                  playing: s.cuePlaying,
+                  onTap: _pickBeat,
+                ),
                 const SizedBox(height: AppSpacing.sm),
 
                 // ── Help & Respiration — always visible ───────────────
@@ -230,67 +286,86 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
 }
 
 class _NowPlayingStrip extends StatelessWidget {
-  const _NowPlayingStrip({required this.bpm, required this.playing});
+  const _NowPlayingStrip({
+    required this.beatName,
+    required this.bpm,
+    required this.playing,
+    required this.onTap,
+  });
+  final String beatName;
   final double bpm;
   final bool playing;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: AppTheme.cardDecoration(radius: AppRadii.lg),
-      child: Row(
-        children: [
-          // Equalizer tile
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: EqualizerBars(
-                barCount: 5,
-                color: AppColors.primary,
-                active: playing,
-                barWidth: 3.2,
-                gap: 2.5,
-                minHeight: 3,
-                maxHeight: 16,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+    return Semantics(
+      button: true,
+      label: 'Now playing $beatName, ${bpm.round()} bpm. Tap to change beat.',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: AppTheme.cardDecoration(radius: AppRadii.lg),
+            child: Row(
               children: [
-                Text(
-                  'Steady · ${bpm.round()} bpm',
-                  style: const TextStyle(
-                    fontFamily: kFontFamily,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.ink,
+                // Equalizer tile
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: EqualizerBars(
+                      barCount: 5,
+                      color: AppColors.primary,
+                      active: playing,
+                      barWidth: 3.2,
+                      gap: 2.5,
+                      minHeight: 3,
+                      maxHeight: 16,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  l10n?.matchedToPace ?? 'matched to your pace',
-                  style: const TextStyle(
-                    fontFamily: kFontFamily,
-                    fontSize: 13,
-                    color: AppColors.inkFaint,
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$beatName · ${bpm.round()} bpm',
+                        style: const TextStyle(
+                          fontFamily: kFontFamily,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        l10n?.tapToChangeBeat ?? 'Tap to change beat',
+                        style: const TextStyle(
+                          fontFamily: kFontFamily,
+                          fontSize: 13,
+                          color: AppColors.inkFaint,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const Icon(Icons.tune_rounded,
+                    color: AppColors.fabSoft, size: 22),
               ],
             ),
           ),
-          Icon(Icons.equalizer, color: AppColors.fabSoft, size: 22),
-        ],
+        ),
       ),
     );
   }

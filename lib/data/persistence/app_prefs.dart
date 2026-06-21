@@ -28,12 +28,27 @@ class AppPrefs {
     await p.setBool(_kVoice, value);
   }
 
+  // ── Audio + notifications ─────────────────────────────────────────────────
+  static const _kCueVolume = 'cueVolume'; // 0–100
+  static const _kReminders = 'remindersEnabled';
+
+  static Future<int> cueVolume() async =>
+      (await SharedPreferences.getInstance()).getInt(_kCueVolume) ?? 80;
+  static Future<void> setCueVolume(int v) async =>
+      (await SharedPreferences.getInstance()).setInt(_kCueVolume, v);
+
+  static Future<bool> remindersEnabled() async =>
+      (await SharedPreferences.getInstance()).getBool(_kReminders) ?? false;
+  static Future<void> setRemindersEnabled(bool v) async =>
+      (await SharedPreferences.getInstance()).setBool(_kReminders, v);
+
   static const _kName = 'profile_name';
-  static const _kAge = 'profile_age';
-  static const _kMeds = 'profile_meds';
+  static const _kBirthdate = 'profile_birthdate'; // ISO yyyy-MM-dd
+  static const _kMeds = 'profile_meds'; // JSON list of strings
   static const _kClinician = 'profile_clinician';
   static const _kContactType = 'profile_contactType';
   static const _kContactName = 'profile_contactName';
+  static const _kContactPhoneCode = 'profile_contactPhoneCode'; // e.g. +1
   static const _kContactPhone = 'profile_contactPhone';
 
   static Future<String> getName() async => (await SharedPreferences.getInstance()).getString(_kName) ?? '';
@@ -42,11 +57,12 @@ class AppPrefs {
     final p = await SharedPreferences.getInstance();
     return {
       'name': p.getString(_kName) ?? '',
-      'age': p.getString(_kAge) ?? '',
+      'birthdate': p.getString(_kBirthdate) ?? '',
       'meds': p.getString(_kMeds) ?? '',
       'clinician': p.getString(_kClinician) ?? '',
       'contactType': p.getString(_kContactType) ?? '',
       'contactName': p.getString(_kContactName) ?? '',
+      'contactPhoneCode': p.getString(_kContactPhoneCode) ?? '+1',
       'contactPhone': p.getString(_kContactPhone) ?? '',
     };
   }

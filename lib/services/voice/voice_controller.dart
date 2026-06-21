@@ -3,12 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../features/session/summary_screen.dart';
-import '../../features/session/walking_screen.dart';
+import '../../features/session/choose_beat_screen.dart';
 import '../../providers/providers.dart';
 import '../../data/persistence/app_prefs.dart';
 import '../intervention/intervention_manager.dart';
 import '../session/session_state.dart';
-import 'claude_api_service.dart';
+import 'openai_chat_service.dart';
 
 enum VoiceStatus { off, idle, listening, speaking, confirming, unavailable }
 
@@ -47,8 +47,8 @@ enum _PendingCall { emergency }
 /// act on tool calls or speak responses → repeat. Drives navigation via
 /// [navigatorKey] + [navIndexProvider] and the walk via the session controller.
 class VoiceController extends Notifier<VoiceUiState> {
-  final _claude = ClaudeApiService();
-  final List<ClaudeMessage> _history = [];
+  final _ai = OpenAiChatService();
+  final List<Map<String, dynamic>> _history = [];
   bool _looping = false;
   _PendingCall? _pending;
 
@@ -110,40 +110,33 @@ class VoiceController extends Notifier<VoiceUiState> {
         continue;
       }
 
-      // Send to Claude.
-      final response = await _claude.chat(text, _history);
+      // Record the user turn, then ask the assistant what to do.
+      _history.add({'role': 'user', 'content': text});
+      final response = await _ai.send(_history);
 
-      if (response is ClaudeTextResponse) {
-        _history.addAll(response.updatedHistory.skip(_history.length));
+      if (response is ChatTextResult) {
+        _history.add(response.assistantMessage);
         await _say(response.text);
-      } else if (response is ClaudeToolResponse) {
-        // Update history with user turn + assistant tool_use turn.
-        _history.addAll(response.updatedHistory.skip(_history.length));
+      } else if (response is ChatToolResult) {
+        // Append the assistant turn carrying the tool call, run the action,
+        // then feed the result back for a spoken confirmation.
+        _history.add(response.assistantMessage);
 
-        final toolResult = await _handleToolCall(response);
+        final toolResult = await _handleToolCall(response.toolName, response.toolArgs);
+        _history.add({
+          'role': 'tool',
+          'tool_call_id': response.toolCallId,
+          'content': toolResult,
+        });
 
-        // Send tool result back to Claude for a spoken confirmation.
-        final confirmationText = await _claude.sendToolResult(
-          response.toolUseId,
-          toolResult,
-          response.updatedHistory,
-        );
-
-        // Append tool_result user turn + assistant confirmation turn to history.
-        _history.add(ClaudeMessage(
-          role: 'user',
-          content: [
-            {
-              'type': 'tool_result',
-              'tool_use_id': response.toolUseId,
-              'content': toolResult,
-            },
-          ],
-        ));
-        _history.add(ClaudeMessage(role: 'assistant', content: confirmationText));
-
-        await _say(confirmationText);
-      } else if (response is ClaudeErrorResponse) {
+        final follow = await _ai.send(_history);
+        if (follow is ChatTextResult) {
+          _history.add(follow.assistantMessage);
+          await _say(follow.text);
+        } else {
+          await _say('Done.');
+        }
+      } else if (response is ChatErrorResult) {
         await _say("Sorry, I had a problem understanding that. Please try again.");
       }
     }
@@ -168,35 +161,32 @@ class VoiceController extends Notifier<VoiceUiState> {
     }
   }
 
-  Future<String> _handleToolCall(ClaudeToolResponse r) async {
-    switch (r.toolName) {
+  Future<String> _handleToolCall(String toolName, Map<String, dynamic> args) async {
+    switch (toolName) {
       case 'navigate_to':
-        final screen = r.toolInput['screen'] as String? ?? '';
-        final screenIndex = r.toolInput['screenIndex'] as int? ?? 0;
+        final screen = args['screen'] as String? ?? '';
+        final screenIndex = (args['screenIndex'] as num?)?.toInt() ?? 0;
         _goTab(screenIndex, screen);
-        return 'Navigated to ${r.toolInput['screen']}';
+        return 'Navigated to $screen';
 
       case 'start_walk':
         await _startWalk();
-        return 'Walk started';
+        return 'Opened the beat picker so the user can choose their tempo, then start walking.';
 
       case 'end_walk':
         await _endWalk();
         return 'Walk ended';
 
       case 'update_setting':
-        final setting = r.toolInput['setting'] as String? ?? '';
-        final value = r.toolInput['value'] as String? ?? '';
+        final setting = args['setting'] as String? ?? '';
+        final value = args['value'] as String? ?? '';
         await _updateSetting(setting, value);
         return 'Setting updated';
 
       case 'update_profile':
-        final field = r.toolInput['field'] as String? ?? '';
-        final value = r.toolInput['value'] as String? ?? '';
-        await AppPrefs.saveProfile({field: value});
-        if (field == 'name') {
-          ref.invalidate(userNameProvider);
-        }
+        final field = args['field'] as String? ?? '';
+        final value = args['value'] as String? ?? '';
+        _showProfileLive(field, value);
         return 'Profile updated';
 
       case 'call_emergency':
@@ -227,15 +217,40 @@ class VoiceController extends Notifier<VoiceUiState> {
     ref.read(navIndexProvider.notifier).set(index);
   }
 
+  /// Open the Profile tab and have it live-type the new value into the field so
+  /// the user watches the change happen. Fields the Profile screen can't type
+  /// (e.g. age) fall back to a direct save.
+  void _showProfileLive(String field, String value) {
+    const liveFields = {
+      'name',
+      'clinician',
+      'contactName',
+      'contactPhone',
+      'contactType',
+      'meds',
+    };
+    navigatorKey.currentState?.popUntil((r) => r.isFirst);
+    ref.read(navIndexProvider.notifier).set(2); // Profile tab
+    if (liveFields.contains(field)) {
+      ref.read(profileEditProvider.notifier).request(field, value);
+    } else {
+      AppPrefs.saveProfile({field: value});
+      if (field == 'name') ref.invalidate(userNameProvider);
+    }
+  }
+
   Future<void> _startWalk() async {
     final session = ref.read(sessionControllerProvider);
     if (session.state == SessionState.walkingNormal ||
         session.state == SessionState.intervention) {
-      return; // Claude will handle the spoken response
+      return; // already walking — Claude handles the spoken response
     }
-    await ref.read(sessionControllerProvider.notifier).startSession(bpm: 108);
+    // Route through the normal flow (beat selection → walking), the same as
+    // tapping the start ring, so the user picks their tempo first.
+    navigatorKey.currentState?.popUntil((r) => r.isFirst);
+    ref.read(navIndexProvider.notifier).set(0);
     navigatorKey.currentState
-        ?.push(MaterialPageRoute(builder: (_) => const WalkingScreen()));
+        ?.push(MaterialPageRoute(builder: (_) => const ChooseBeatScreen()));
   }
 
   Future<void> _endWalk() async {
@@ -250,7 +265,19 @@ class VoiceController extends Notifier<VoiceUiState> {
   }
 
   Future<void> _dial(_PendingCall which) async {
-    final number = '911';
+    // Dial the emergency contact saved in the profile (never a hardcoded 911).
+    final p = await AppPrefs.getProfile();
+    final code = (p['contactPhoneCode'] ?? '').trim();
+    final raw = (p['contactPhone'] ?? '').trim();
+    final digits = raw.replaceAll(RegExp(r'[^0-9+]'), '');
+    final number = digits.isEmpty
+        ? ''
+        : (digits.startsWith('+') ? digits : '$code$digits');
+    if (number.isEmpty) {
+      await _say(
+          "I couldn't find an emergency contact. Please add one in your profile.");
+      return;
+    }
     final action = InterventionAction.callEmergencyContact;
     final session = ref.read(sessionControllerProvider);
     if (session.state == SessionState.intervention) {

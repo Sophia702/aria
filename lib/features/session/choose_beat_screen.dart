@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/a11y/a11y.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/beats.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/providers.dart';
 import '../../widgets/equalizer_bars.dart';
@@ -19,21 +20,9 @@ class ChooseBeatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
-  static const _beats = [
-    (name: 'Valse Gymnopedie',      sub: 'Gentle and graceful',  bpm: 77,  file: 'assets/sounds/Valse Gymnopedie (77 bpm).wav'),
-    (name: 'Infinite Perspective',  sub: 'Easy flowing pace',    bpm: 80,  file: 'assets/sounds/Infinite Perspective (80 bpm).wav'),
-    (name: 'Evening',               sub: 'Calm evening walk',    bpm: 101, file: 'assets/sounds/Evening (101 bpm).wav'),
-    (name: 'Kawai Kitsune',         sub: 'Upbeat and energetic', bpm: 116, file: 'assets/sounds/Kawai Kitsune (116 bpm).wav'),
-  ];
-
-  static const _songs = [
-    (title: 'Vampire', artist: 'Olivia Rodrigo', bpm: 88),
-    (title: 'Lovely Day', artist: 'Bill Withers', bpm: 95),
-    (title: 'Three Little Birds', artist: 'Bob Marley', bpm: 104),
-  ];
+  static const _beats = kBeats;
 
   int _beatSelected = 0;
-  int _songSelected = 0;
   bool _songsTab = false;
   final _previewPlayer = AudioPlayer();
 
@@ -47,10 +36,8 @@ class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
 
   Future<void> _choose(AppLocalizations? l10n) async {
     await _previewPlayer.stop();
-    final bpm = _songsTab
-        ? _songs[_songSelected].bpm.toDouble()
-        : _beats[_beatSelected].bpm.toDouble();
-    final soundFile = _songsTab ? null : _beats[_beatSelected].file;
+    final bpm = _beats[_beatSelected].bpm.toDouble();
+    final soundFile = _beats[_beatSelected].file;
     await ref.read(sessionControllerProvider.notifier).startSession(bpm: bpm);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
@@ -96,16 +83,7 @@ class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
                 const SizedBox(height: AppSpacing.md),
                 Expanded(
                   child: _songsTab
-                      ? ListView.builder(
-                          itemCount: _songs.length,
-                          itemBuilder: (context, i) => _SongTile(
-                            title: _songs[i].title,
-                            artist: _songs[i].artist,
-                            bpm: _songs[i].bpm,
-                            selected: i == _songSelected,
-                            onTap: () => setState(() => _songSelected = i),
-                          ),
-                        )
+                      ? const _ComingSoon()
                       : ListView.builder(
                           itemCount: _beats.length,
                           itemBuilder: (context, i) => _BeatTile(
@@ -120,7 +98,7 @@ class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
                 GradientButton(
                   label: l10n?.chooseThisBeat ?? 'Choose this beat',
                   icon: Icons.play_arrow_rounded,
-                  onPressed: () => _choose(l10n),
+                  onPressed: _songsTab ? null : () => _choose(l10n),
                 ),
               ],
             ),
@@ -319,109 +297,26 @@ class _BeatTile extends StatelessWidget {
   }
 }
 
-class _SongTile extends StatelessWidget {
-  const _SongTile({
-    required this.title,
-    required this.artist,
-    required this.bpm,
-    required this.selected,
-    required this.onTap,
-  });
-  final String title;
-  final String artist;
-  final int bpm;
-  final bool selected;
-  final VoidCallback onTap;
+/// Placeholder for the not-yet-built music feature.
+class _ComingSoon extends StatelessWidget {
+  const _ComingSoon();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: '$title by $artist, $bpm beats per minute',
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppRadii.lg),
-            onTap: onTap,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 140),
-              constraints: const BoxConstraints(minHeight: 74),
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(AppRadii.lg),
-                border: Border.all(
-                  color: selected ? AppColors.primary : AppColors.line,
-                  width: selected ? 2 : 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Waveform tile
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? AppColors.primarySoft
-                          : AppColors.surfaceSunk,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: EqualizerBars(
-                        barCount: 4,
-                        color: selected
-                            ? AppColors.primary
-                            : AppColors.inkFaint,
-                        active: selected,
-                        barWidth: 3.0,
-                        gap: 2.5,
-                        minHeight: 3,
-                        maxHeight: 16,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(title,
-                            style: AppType.h2.copyWith(fontSize: 18)),
-                        const SizedBox(height: 2),
-                        Text('$artist · $bpm bpm',
-                            style: AppType.label),
-                      ],
-                    ),
-                  ),
-                  // Radio selector
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: selected ? AppColors.primary : Colors.transparent,
-                      border: Border.all(
-                        color: selected
-                            ? AppColors.primary
-                            : AppColors.inkFaint,
-                        width: 2,
-                      ),
-                    ),
-                    child: selected
-                        ? const Icon(Icons.check_rounded,
-                            color: Colors.white, size: 14)
-                        : null,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+    final l10n = AppLocalizations.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.library_music_outlined,
+              color: AppColors.inkFaint, size: 40),
+          const SizedBox(height: AppSpacing.md),
+          Text(l10n?.comingSoon ?? 'Functionality coming soon',
+              style: AppType.h2.copyWith(fontSize: 18)),
+          const SizedBox(height: 4),
+          Text(l10n?.musicNotAvailable ?? 'Music selection isn’t available just yet.',
+              style: AppType.label, textAlign: TextAlign.center),
+        ],
       ),
     );
   }

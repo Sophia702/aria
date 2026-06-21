@@ -4,11 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/fog_prediction.dart';
 import '../../data/models/imu_sample.dart';
+import '../../data/models/sensor_status.dart';
+import '../../data/models/walk_session.dart';
+import '../../data/persistence/app_prefs.dart';
 import '../../providers/providers.dart';
+import '../cadence/cadence_service.dart';
 import '../cue/cue_engine.dart';
 import '../intervention/intervention_manager.dart';
 import '../model/fog_model.dart';
+import '../sensors/arduino_ble_service.dart';
 import '../sensors/sensor_source.dart';
+import '../watch/watch_cadence_service.dart';
 import 'ring_buffer.dart';
 import 'session_state.dart';
 
@@ -31,8 +37,14 @@ class SessionController extends Notifier<SessionSnapshot> {
   StreamSubscription? _sampleSub;
   StreamSubscription? _interventionSub;
 
+  // Live cadence sources (real steps/min) feeding the walking screen.
+  StreamSubscription<double?>? _watchCadenceSub;
+  StreamSubscription<double>? _imuCadenceSub;
+  CadenceService? _imuCadence;
+
   int _sinceStep = 0;
-  int _lastTickMs = 0;
+  Timer? _ticker;
+  DateTime? _walkStart;
 
   @override
   SessionSnapshot build() {
@@ -50,9 +62,47 @@ class SessionController extends Notifier<SessionSnapshot> {
     ref.onDispose(() {
       _sampleSub?.cancel();
       _interventionSub?.cancel();
+      _ticker?.cancel();
+      _stopLiveCadence();
     });
 
     return const SessionSnapshot();
+  }
+
+  // ── Live cadence ──────────────────────────────────────────────────────────
+  // Show REAL steps/min during a walk, preferring the Arduino IMU (if the board
+  // is connected) and otherwise the Apple Watch step cadence. Falls back to the
+  // cue tempo when no real source is available.
+  void _startLiveCadence() {
+    final ble = ref.read(arduinoBleProvider);
+    if (ble.state == ArduinoBleState.connected) {
+      final cadence = CadenceService(ble);
+      _imuCadence = cadence;
+      cadence.start();
+      _imuCadenceSub = cadence.onCadence.listen((spm) {
+        if (spm > 0) _applyLiveCadence(spm);
+      });
+    }
+    // Apple Watch cadence (iOS). Yields null when unavailable — harmless.
+    _watchCadenceSub = WatchCadenceService.liveStream().listen((spm) {
+      if (spm != null && spm > 0) _applyLiveCadence(spm);
+    });
+  }
+
+  void _applyLiveCadence(double spm) {
+    if (state.state == SessionState.walkingNormal ||
+        state.state == SessionState.intervention) {
+      state = state.copyWith(stepsPerMin: spm);
+    }
+  }
+
+  void _stopLiveCadence() {
+    _watchCadenceSub?.cancel();
+    _watchCadenceSub = null;
+    _imuCadenceSub?.cancel();
+    _imuCadenceSub = null;
+    _imuCadence?.dispose();
+    _imuCadence = null;
   }
 
   /// Begin a walking session. [bpm] is the baseline cadence from calibration
@@ -60,17 +110,21 @@ class SessionController extends Notifier<SessionSnapshot> {
   Future<void> startSession({double bpm = 100}) async {
     _window.clear();
     _sinceStep = 0;
-    _lastTickMs = 0;
 
     await model.load();
 
-    // Make sure sensors are connected (mock connects instantly).
-    if (!sensors.statusNow.allConnected) {
+    // Make sure the sensors this source actually needs are connected (the back
+    // sensor for the real flow; the mock connects instantly). Gating on
+    // expectedLocations avoids waiting on ankles that aren't real hardware.
+    final ready = sensors.expectedLocations.every(
+        (l) => sensors.statusNow.of(l) == SensorConnState.connected);
+    if (!ready) {
       await sensors.connectAll();
     }
 
     await cue.init();
     await cue.startCue(bpm: bpm);
+    await cue.setVolume(await AppPrefs.cueVolume() / 100.0);
     await sensors.start();
     _sampleSub = sensors.samples.listen(_onSample);
 
@@ -84,26 +138,38 @@ class SessionController extends Notifier<SessionSnapshot> {
       freezesEased: 0,
       cuePlaying: true,
     );
+
+    // Walk timer ticks independently of sensor samples, so the elapsed time
+    // is always correct even when no hardware is streaming.
+    _walkStart = DateTime.now();
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final start = _walkStart;
+      if (start != null) {
+        state = state.copyWith(elapsed: DateTime.now().difference(start));
+      }
+    });
+
+    _startLiveCadence();
+  }
+
+  /// Switch the cue tempo mid-walk (from the walking screen's beat picker).
+  Future<void> changeTempo(double bpm) async {
+    await cue.setTempo(bpm);
+    state = state.copyWith(bpm: bpm);
   }
 
   void _onSample(ImuSample sample) {
     _window.add(sample.features);
     _sinceStep++;
 
-    final shouldPredict = _window.isFull && _sinceStep >= model.stepSize;
-    if (shouldPredict) {
+    if (_window.isFull && _sinceStep >= model.stepSize) {
       _sinceStep = 0;
-      final prediction = model.predict(_window.snapshot());
-      _applyPrediction(prediction, sample.tMillis);
-    } else if (sample.tMillis - _lastTickMs >= 500) {
-      // Keep the elapsed timer ticking even before the first prediction.
-      _lastTickMs = sample.tMillis;
-      state = state.copyWith(elapsed: Duration(milliseconds: sample.tMillis));
+      _applyPrediction(model.predict(_window.snapshot()));
     }
   }
 
-  void _applyPrediction(FogPrediction p, int tMillis) {
-    _lastTickMs = tMillis;
+  void _applyPrediction(FogPrediction p) {
     // Forward to the intervention manager (it decides whether to surface one).
     intervention.onFogState(p.state);
 
@@ -116,7 +182,6 @@ class SessionController extends Notifier<SessionSnapshot> {
       state: nextSessionState,
       fogState: p.state,
       fogProbability: p.fogProbability,
-      elapsed: Duration(milliseconds: tMillis),
     );
   }
 
@@ -144,8 +209,25 @@ class SessionController extends Notifier<SessionSnapshot> {
   Future<void> endSession() async {
     await _sampleSub?.cancel();
     _sampleSub = null;
+    _ticker?.cancel();
+    _ticker = null;
+    _stopLiveCadence();
     await sensors.stop();
     await cue.stopCue();
+
+    // Persist the completed walk so Home / Progress / Summary show real data.
+    if (state.elapsed.inSeconds >= 5) {
+      final minutes = state.elapsed.inSeconds / 60.0;
+      await ref.read(sessionHistoryProvider.notifier).record(WalkSession(
+            startedAtMs: DateTime.now().millisecondsSinceEpoch -
+                state.elapsed.inMilliseconds,
+            durationSeconds: state.elapsed.inSeconds,
+            steps: (state.stepsPerMin * minutes).round(),
+            avgCadence: state.stepsPerMin,
+            freezesEased: state.freezesEased,
+          ));
+    }
+
     state = state.copyWith(state: SessionState.ended, cuePlaying: false);
   }
 

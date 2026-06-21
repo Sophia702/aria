@@ -7,10 +7,12 @@ import '../../data/models/sensor_status.dart';
 import '../../data/persistence/app_prefs.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/providers.dart';
+import '../../services/medication/medication_search.dart';
 import '../../services/voice/voice_controller.dart';
 import '../../widgets/aria_logo.dart';
 import '../../widgets/body_view.dart';
 import '../../widgets/gradient_button.dart';
+import '../../widgets/profile_fields.dart';
 import '../shell/main_shell.dart';
 
 /// First-run onboarding. Navigation is BUTTON-ONLY (no swipe) per the
@@ -32,13 +34,15 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
   int _step = 0;
   bool _speechAssist = false;
 
-  final _name = TextEditingController(text: 'Margaret');
-  final _age = TextEditingController();
-  final _years = TextEditingController();
-  final _meds = TextEditingController();
-  final _contactType = TextEditingController();
+  final _name = TextEditingController();
+  final _clinician = TextEditingController();
   final _contactName = TextEditingController();
   final _contactPhone = TextEditingController();
+
+  DateTime? _birthdate;
+  List<String> _meds = [];
+  String? _relationship;
+  String _dialCode = '+1';
 
   _Baseline _baseline = _Baseline.idle;
 
@@ -54,15 +58,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
   @override
   void dispose() {
     _animController.dispose();
-    for (final c in [
-      _name,
-      _age,
-      _years,
-      _meds,
-      _contactType,
-      _contactName,
-      _contactPhone
-    ]) {
+    for (final c in [_name, _clinician, _contactName, _contactPhone]) {
       c.dispose();
     }
     super.dispose();
@@ -76,13 +72,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
 
   Future<void> _finish() async {
     await AppPrefs.saveProfile({
-      'name': _name.text,
-      'age': _age.text,
-      'meds': _meds.text,
-      'clinician': '',
-      'contactType': _contactType.text,
-      'contactName': _contactName.text,
-      'contactPhone': _contactPhone.text,
+      'name': _name.text.trim(),
+      'birthdate': _birthdate == null ? '' : _isoDate(_birthdate!),
+      'meds': MedicationSearch.encode(_meds),
+      'clinician': _clinician.text.trim(),
+      'contactType': _relationship ?? '',
+      'contactName': _contactName.text.trim(),
+      'contactPhoneCode': _dialCode,
+      'contactPhone': _contactPhone.text.trim(),
     });
     ref.invalidate(userNameProvider);
     await AppPrefs.setOnboarded();
@@ -230,7 +227,11 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
     );
   }
 
-  // Step 2 — About you.
+  static String _isoDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  // Step 2 — About you. Same fields as the Profile page; saved together so
+  // editing here or there keeps everything in sync.
   Widget _aboutYou(AppLocalizations? l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,20 +241,51 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
         Expanded(
           child: ListView(
             children: [
-              _OnbField(label: 'Name', controller: _name),
-              _OnbField(label: 'Age', controller: _age),
-              _OnbField(label: 'Years since diagnosis', controller: _years),
-              _OnbField(label: 'Medications (optional)', controller: _meds),
-              _OnbField(
-                  label: 'Emergency contact — relationship',
-                  controller: _contactType),
-              _OnbField(
-                  label: 'Emergency contact — name',
-                  controller: _contactName),
-              _OnbField(
-                  label: 'Emergency contact — phone',
-                  controller: _contactPhone),
-              const SizedBox(height: AppSpacing.sm),
+              _OnbSection(
+                title: l10n?.personalInfo ?? 'Personal information',
+                children: [
+                  LabeledTextField(
+                      label: l10n?.fieldName ?? 'Name', controller: _name),
+                  BirthdateField(
+                    date: _birthdate,
+                    onChanged: (d) => setState(() => _birthdate = d),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _OnbSection(
+                title: l10n?.medicalInfo ?? 'Medical information',
+                children: [
+                  MedicationField(
+                    meds: _meds,
+                    onChanged: (m) => setState(() => _meds = m),
+                  ),
+                  LabeledTextField(
+                      label: l10n?.clinicianOptional ??
+                          'Assigned clinician (optional)',
+                      controller: _clinician),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _OnbSection(
+                title: l10n?.emergencyContact ?? 'Emergency contact',
+                children: [
+                  RelationshipDropdown(
+                    value: _relationship,
+                    onChanged: (v) => setState(() => _relationship = v),
+                  ),
+                  LabeledTextField(
+                      label: l10n?.fieldName ?? 'Name',
+                      controller: _contactName),
+                  PhoneField(
+                    dialCode: _dialCode,
+                    controller: _contactPhone,
+                    onCodeChanged: (v) =>
+                        setState(() => _dialCode = v ?? '+1'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
                   const Icon(Icons.lock_outline,
@@ -261,8 +293,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'We ask for location only to share with your contact in an '
-                      'emergency. Your data stays private.',
+                      'Your information is stored only on this device and kept '
+                      'private. It is never uploaded or shared.',
                       style:
                           AppType.label.copyWith(color: AppColors.inkFaint),
                     ),
@@ -306,7 +338,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
                       onTap: (loc) => sensors.connect(loc),
                     ),
                   ),
-                  if (!status.allConnected)
+                  // Connect-all is optional; the user can always continue even
+                  // with nothing connected (e.g. setting up before the sensor).
+                  if (!status.allConnected) ...[
                     OutlinedButton(
                       onPressed: () => sensors.connectAll(),
                       style: OutlinedButton.styleFrom(
@@ -320,12 +354,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
                       child: Text(l10n?.connectAll ?? 'Connect all',
                           style: AppType.button
                               .copyWith(color: AppColors.primary)),
-                    )
-                  else
-                    GradientButton(
-                        label: l10n?.next ?? 'Next',
-                        icon: Icons.arrow_forward_rounded,
-                        onPressed: _next),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  GradientButton(
+                      label: l10n?.continueBtn ?? 'Continue',
+                      icon: Icons.arrow_forward_rounded,
+                      onPressed: _next),
                 ],
               );
             },
@@ -584,47 +619,26 @@ class _HelpPoint extends StatelessWidget {
   }
 }
 
-class _OnbField extends StatelessWidget {
-  const _OnbField({required this.label, required this.controller});
-  final String label;
-  final TextEditingController controller;
+/// Card section wrapper for the onboarding "About you" form (matches Profile).
+class _OnbSection extends StatelessWidget {
+  const _OnbSection({required this.title, required this.children});
+  final String title;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: AppTheme.cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: AppType.label.copyWith(color: AppColors.inkSoft)),
-          const SizedBox(height: 4),
-          TextField(
-            controller: controller,
-            style: AppType.h2.copyWith(fontSize: 18),
-            decoration: InputDecoration(
-              isDense: true,
-              filled: true,
-              fillColor: AppColors.field,
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(11),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(11),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(11),
-                borderSide:
-                    const BorderSide(color: AppColors.primary, width: 1.5),
-              ),
-            ),
-          ),
+          Text(title, style: AppType.label),
+          const SizedBox(height: AppSpacing.sm),
+          ...children,
         ],
       ),
     );
   }
 }
+
