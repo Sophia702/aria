@@ -241,32 +241,51 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
         Expanded(
           child: ListView(
             children: [
-              LabeledTextField(label: 'Name', controller: _name),
-              BirthdateField(
-                date: _birthdate,
-                onChanged: (d) => setState(() => _birthdate = d),
+              _OnbSection(
+                title: l10n?.personalInfo ?? 'Personal information',
+                children: [
+                  LabeledTextField(
+                      label: l10n?.fieldName ?? 'Name', controller: _name),
+                  BirthdateField(
+                    date: _birthdate,
+                    onChanged: (d) => setState(() => _birthdate = d),
+                  ),
+                ],
               ),
-              MedicationField(
-                meds: _meds,
-                onChanged: (m) => setState(() => _meds = m),
+              const SizedBox(height: AppSpacing.md),
+              _OnbSection(
+                title: l10n?.medicalInfo ?? 'Medical information',
+                children: [
+                  MedicationField(
+                    meds: _meds,
+                    onChanged: (m) => setState(() => _meds = m),
+                  ),
+                  LabeledTextField(
+                      label: l10n?.clinicianOptional ??
+                          'Assigned clinician (optional)',
+                      controller: _clinician),
+                ],
               ),
-              LabeledTextField(
-                  label: 'Assigned clinician (optional)',
-                  controller: _clinician),
-              const SizedBox(height: AppSpacing.sm),
-              Text('Emergency contact',
-                  style: AppType.label.copyWith(color: AppColors.inkSoft)),
-              RelationshipDropdown(
-                value: _relationship,
-                onChanged: (v) => setState(() => _relationship = v),
+              const SizedBox(height: AppSpacing.md),
+              _OnbSection(
+                title: l10n?.emergencyContact ?? 'Emergency contact',
+                children: [
+                  RelationshipDropdown(
+                    value: _relationship,
+                    onChanged: (v) => setState(() => _relationship = v),
+                  ),
+                  LabeledTextField(
+                      label: l10n?.fieldName ?? 'Name',
+                      controller: _contactName),
+                  PhoneField(
+                    dialCode: _dialCode,
+                    controller: _contactPhone,
+                    onCodeChanged: (v) =>
+                        setState(() => _dialCode = v ?? '+1'),
+                  ),
+                ],
               ),
-              LabeledTextField(label: 'Name', controller: _contactName),
-              PhoneField(
-                dialCode: _dialCode,
-                controller: _contactPhone,
-                onCodeChanged: (v) => setState(() => _dialCode = v ?? '+1'),
-              ),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
                   const Icon(Icons.lock_outline,
@@ -319,7 +338,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
                       onTap: (loc) => sensors.connect(loc),
                     ),
                   ),
-                  if (!status.allConnected)
+                  // Connect-all is optional; the user can always continue even
+                  // with nothing connected (e.g. setting up before the sensor).
+                  if (!status.allConnected) ...[
                     OutlinedButton(
                       onPressed: () => sensors.connectAll(),
                       style: OutlinedButton.styleFrom(
@@ -333,12 +354,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow>
                       child: Text(l10n?.connectAll ?? 'Connect all',
                           style: AppType.button
                               .copyWith(color: AppColors.primary)),
-                    )
-                  else
-                    GradientButton(
-                        label: l10n?.next ?? 'Next',
-                        icon: Icons.arrow_forward_rounded,
-                        onPressed: _next),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  GradientButton(
+                      label: l10n?.continueBtn ?? 'Continue',
+                      icon: Icons.arrow_forward_rounded,
+                      onPressed: _next),
                 ],
               );
             },
@@ -591,6 +613,29 @@ class _HelpPoint extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Card section wrapper for the onboarding "About you" form (matches Profile).
+class _OnbSection extends StatelessWidget {
+  const _OnbSection({required this.title, required this.children});
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: AppTheme.cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: AppType.label),
+          const SizedBox(height: AppSpacing.sm),
+          ...children,
         ],
       ),
     );

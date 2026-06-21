@@ -80,8 +80,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.invalidate(userNameProvider);
     if (!mounted) return;
     setState(() => _dirty = false);
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Changes saved')),
+      SnackBar(content: Text(l10n?.changesSaved ?? 'Changes saved')),
     );
   }
 

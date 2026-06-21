@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/a11y/a11y.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/beats.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/providers.dart';
 import '../../widgets/equalizer_bars.dart';
@@ -19,12 +20,7 @@ class ChooseBeatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
-  static const _beats = [
-    (name: 'Gentle Waltz',    sub: 'Gentle and graceful',  bpm: 77,  file: 'assets/sounds/Valse Gymnopedie (77 bpm).wav'),
-    (name: 'Easy Flow',       sub: 'Easy flowing pace',    bpm: 80,  file: 'assets/sounds/Infinite Perspective (80 bpm).wav'),
-    (name: 'Evening Stroll',  sub: 'Calm evening walk',    bpm: 101, file: 'assets/sounds/Evening (101 bpm).wav'),
-    (name: 'Upbeat Stride',   sub: 'Upbeat and energetic', bpm: 116, file: 'assets/sounds/Kawai Kitsune (116 bpm).wav'),
-  ];
+  static const _beats = kBeats;
 
   int _beatSelected = 0;
   bool _songsTab = false;
@@ -307,6 +303,7 @@ class _ComingSoon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -314,10 +311,10 @@ class _ComingSoon extends StatelessWidget {
           const Icon(Icons.library_music_outlined,
               color: AppColors.inkFaint, size: 40),
           const SizedBox(height: AppSpacing.md),
-          Text('Functionality coming soon',
+          Text(l10n?.comingSoon ?? 'Functionality coming soon',
               style: AppType.h2.copyWith(fontSize: 18)),
           const SizedBox(height: 4),
-          Text('Music selection isn’t available just yet.',
+          Text(l10n?.musicNotAvailable ?? 'Music selection isn’t available just yet.',
               style: AppType.label, textAlign: TextAlign.center),
         ],
       ),

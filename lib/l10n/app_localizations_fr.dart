@@ -69,7 +69,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get baselineWalk => 'Marche de référence';
 
   @override
-  String get startWalk => 'Commencer la marche';
+  String get startWalk => 'Marcher';
 
   @override
   String get goodMorning => 'Bonjour,';
@@ -337,4 +337,126 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get restartOnboarding => 'Redémarrer l\'intégration';
+
+  @override
+  String get captionSteps => 'pas';
+
+  @override
+  String get captionMin => 'min';
+
+  @override
+  String get tapToConnect => 'Touchez pour connecter';
+
+  @override
+  String get appleWatch => 'Apple Watch';
+
+  @override
+  String get liveHeartRate => 'Fréquence cardiaque en direct';
+
+  @override
+  String get watchCadenceTitle => 'Cadence de la montre';
+
+  @override
+  String get watchCadenceSub => 'Rythme de pas via Apple Watch';
+
+  @override
+  String get arduinoImu => 'Arduino IMU';
+
+  @override
+  String get liveImuData => 'Données IMU en direct';
+
+  @override
+  String get cadenceTrackerTitle => 'Suivi de cadence';
+
+  @override
+  String get cadenceTrackerSub =>
+      'Rythme de pas & synchronisation des battements';
+
+  @override
+  String get birthDate => 'Date de naissance';
+
+  @override
+  String get selectDate => 'Sélectionner la date';
+
+  @override
+  String get ageWord => 'Âge';
+
+  @override
+  String get addWord => 'Ajouter';
+
+  @override
+  String get medicationsLabel => 'Médicaments';
+
+  @override
+  String get typeToSearch => 'Tapez pour rechercher…';
+
+  @override
+  String get selectRelationship => 'Sélectionner la relation';
+
+  @override
+  String get phoneNumber => 'Numéro de téléphone';
+
+  @override
+  String get cancel => 'Annuler';
+
+  @override
+  String get doneWord => 'Fait';
+
+  @override
+  String get clinicianOptional => 'Clinicien assigné (optionnel)';
+
+  @override
+  String get noWalksYet => 'Aucune marche pour l\'instant';
+
+  @override
+  String get sessionsAppearHere =>
+      'Vos séances apparaîtront ici une fois que vous commencerez à marcher.';
+
+  @override
+  String get noWalksRecorded => 'Aucune marche enregistrée pour l\'instant.';
+
+  @override
+  String get comingSoon => 'Fonctionnalité bientôt disponible';
+
+  @override
+  String get musicNotAvailable =>
+      'La sélection musicale n\'est pas encore disponible.';
+
+  @override
+  String get changeBeat => 'Changer le rythme';
+
+  @override
+  String get tapToChangeBeat => 'Touchez pour changer le rythme';
+
+  @override
+  String get breatheIn => 'Inspirez';
+
+  @override
+  String get breatheOut => 'Expirez';
+
+  @override
+  String get holdBreath => 'Retenez';
+
+  @override
+  String get breatheWord => 'Respirez';
+
+  @override
+  String get followCircle => 'Suivez le cercle. Par le nez, par la bouche.';
+
+  @override
+  String get feelingBetter => 'Je me sens mieux, continuez';
+
+  @override
+  String get emergencyContactLabel => 'Contact d\'urgence';
+
+  @override
+  String get noContactSaved =>
+      'Aucun contact d\'urgence enregistré. Ajoutez-en un dans votre profil.';
+
+  @override
+  String get enableNotifications =>
+      'Activez les notifications pour aria dans les paramètres pour recevoir des rappels.';
+
+  @override
+  String get changesSaved => 'Modifications enregistrées';
 }

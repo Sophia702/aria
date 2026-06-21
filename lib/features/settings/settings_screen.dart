@@ -59,6 +59,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // permanently denied, we send the user to the system settings to enable it.
   Future<void> _setReminders(bool v) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     if (v) {
       var status = await Permission.notification.status;
       if (!status.isGranted) {
@@ -68,9 +69,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         if (!mounted) return;
         setState(() => _reminders = false);
         await AppPrefs.setRemindersEnabled(false);
-        messenger.showSnackBar(const SnackBar(
-          content: Text('Enable notifications for aria in Settings to '
-              'receive reminders.'),
+        messenger.showSnackBar(SnackBar(
+          content: Text(l10n?.enableNotifications ??
+              'Enable notifications for aria in Settings to receive reminders.'),
         ));
         await openAppSettings();
         return;

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
@@ -22,6 +24,7 @@ class OpenAiVoiceAssistant implements VoiceAssistant {
   final SpeechToText _stt = SpeechToText();
   final AudioPlayer _player = AudioPlayer();
   final FlutterTts _fallbackTts = FlutterTts();
+  AudioSession? _session;
   bool _available = false;
   int _fileSeq = 0;
 
@@ -46,6 +49,16 @@ class OpenAiVoiceAssistant implements VoiceAssistant {
       onError: (e) {/* swallow; loop will retry */},
       onStatus: (_) {},
     );
+
+    // One shared audio session for BOTH the mic (speech_to_text) and TTS
+    // playback (just_audio). Without this, after the mic records, the iOS
+    // session stays in record mode and OpenAI playback fails — which is what
+    // made it fall back to the robotic on-device voice. The `speech()` preset
+    // is play-and-record, so both coexist.
+    try {
+      _session = await AudioSession.instance;
+      await _session!.configure(const AudioSessionConfiguration.speech());
+    } catch (_) {/* non-fatal */}
 
     // Configure the on-device fallback voice (used only if OpenAI is unreachable).
     await _fallbackTts.setLanguage('en-US');
@@ -77,8 +90,9 @@ class OpenAiVoiceAssistant implements VoiceAssistant {
       try {
         await _speakWithOpenAi(text);
         return;
-      } catch (_) {
-        // Network/key failure — fall through to on-device voice.
+      } catch (e, st) {
+        // Surfaced in the device console so the real cause is visible.
+        debugPrint('[aria] OpenAI voice failed, using fallback: $e\n$st');
       }
     }
     await _speakWithFallback(text);
@@ -103,6 +117,16 @@ class OpenAiVoiceAssistant implements VoiceAssistant {
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/aria_tts_${_fileSeq++}.mp3');
     await file.writeAsBytes(response.bodyBytes, flush: true);
+
+    // speech_to_text leaves the iOS audio session in RECORD mode, on which
+    // just_audio can't play. Force it to PLAYBACK (routes to the speaker) and
+    // re-activate before playing the natural OpenAI voice.
+    try {
+      await _session?.configure(const AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+      ));
+      await _session?.setActive(true);
+    } catch (_) {/* keep going — play may still work */}
 
     await _player.stop();
     await _player.setFilePath(file.path);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Full-screen guided breathing. A large circle expands on "Breathe in" and
 /// contracts on "Breathe out" (4-phase box breath). The user can leave with the
@@ -26,11 +27,11 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
     super.dispose();
   }
 
-  String _phase(double v) {
-    if (v < 0.25) return 'Breathe in';
-    if (v < 0.50) return 'Hold';
-    if (v < 0.75) return 'Breathe out';
-    return 'Hold';
+  String _phase(double v, AppLocalizations? l10n) {
+    if (v < 0.25) return l10n?.breatheIn ?? 'Breathe in';
+    if (v < 0.50) return l10n?.holdBreath ?? 'Hold';
+    if (v < 0.75) return l10n?.breatheOut ?? 'Breathe out';
+    return l10n?.holdBreath ?? 'Hold';
   }
 
   double _scale(double v) {
@@ -42,6 +43,7 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final reduced = MediaQuery.of(context).disableAnimations;
     final size = MediaQuery.of(context).size;
     final maxCircle = size.width * 0.8;
@@ -98,7 +100,9 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
                             ),
                           ),
                           Text(
-                            reduced ? 'Breathe' : _phase(v),
+                            reduced
+                                ? (l10n?.breatheWord ?? 'Breathe')
+                                : _phase(v, l10n),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 26,
@@ -121,8 +125,9 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Follow the circle. In through your nose, out through '
-                        'your mouth.',
+                        l10n?.followCircle ??
+                            'Follow the circle. In through your nose, out '
+                                'through your mouth.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.85),
@@ -137,7 +142,8 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
                         child: ElevatedButton.icon(
                           onPressed: () => Navigator.of(context).pop(true),
                           icon: const Icon(Icons.check_rounded),
-                          label: const Text("I'm feeling better, continue"),
+                          label: Text(
+                              l10n?.feelingBetter ?? "I'm feeling better, continue"),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: AppColors.primary,

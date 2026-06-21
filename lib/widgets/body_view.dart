@@ -18,34 +18,26 @@ class BodyView extends StatelessWidget {
   final SensorStatusMap status;
   final ValueChanged<SensorLocation> onTap;
 
-  // Sensor placements over the figure (fractional -> Alignment).
+  // Sensor placements over the figure (fractional -> Alignment), tuned to the
+  // body_figure silhouette: lower back at the waist, one dot on each ankle.
   static const _spots = {
-    SensorLocation.lowerBack: Alignment(0.0, 0.02),
-    SensorLocation.ankleLeft: Alignment(-0.13, 0.72),
-    SensorLocation.ankleRight: Alignment(0.13, 0.72),
+    SensorLocation.lowerBack: Alignment(0.0, -0.02),
+    SensorLocation.ankleLeft: Alignment(-0.18, 0.82),
+    SensorLocation.ankleRight: Alignment(0.18, 0.82),
   };
 
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
-      aspectRatio: 0.6,
+      aspectRatio: 0.62,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Clean full-body figure on a soft rounded card.
+          // Clean full-body silhouette, no background card.
           Center(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppRadii.xl),
-                border: Border.all(color: AppColors.line),
-              ),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 28, vertical: 20),
-              child: Image.asset(
-                'assets/images/aria_body.png',
-                fit: BoxFit.contain,
-              ),
+            child: Image.asset(
+              'assets/images/body_figure.png',
+              fit: BoxFit.contain,
             ),
           ),
           // Sensor markers.

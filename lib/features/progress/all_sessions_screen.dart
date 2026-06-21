@@ -89,7 +89,7 @@ class _AllSessionsScreenState extends ConsumerState<AllSessionsScreen> {
         child: sessions.isEmpty
             ? Center(
                 child: Text(
-                  'No walks recorded yet.',
+                  l10n?.noWalksRecorded ?? 'No walks recorded yet.',
                   style: AppType.body,
                 ),
               )

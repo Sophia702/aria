@@ -27,19 +27,6 @@ class HomeScreen extends ConsumerWidget {
     return l10n?.goodEvening ?? 'Good evening,';
   }
 
-  Widget _orb(Color color, double size, double opacity) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [
-              color.withValues(alpha: opacity),
-              color.withValues(alpha: 0.0),
-            ],
-          ),
-        ),
-      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -51,96 +38,108 @@ class HomeScreen extends ConsumerWidget {
 
     return Stack(
       children: [
-        Positioned(
-            top: -55,
-            right: -55,
-            child: _orb(AppColors.primary, 200, 0.08)),
-
         SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md,
               AppSpacing.lg, AppSpacing.navClearance + MediaQuery.of(context).padding.bottom),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ──────────────────────────────────────────────────
-              Row(
+              // ── Header — logo left, big speech-assist button right ──────
+              // ── Header + greeting, with the big speech button floated at
+              //    top-right so it never stretches the layout (no gap). ──────
+              Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  const AriaLogo(size: 36, showWordmark: false),
-                  const SizedBox(width: 8),
-                  Text(
-                    'aria',
-                    style: AppType.displaySerif.copyWith(
-                      fontSize: 24,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const Spacer(),
-                  Semantics(
-                    button: true,
-                    label: 'Speech assist',
-                    child: GestureDetector(
-                      onTap: () {
-                        final notifier =
-                            ref.read(voiceControllerProvider.notifier);
-                        if (voiceEnabled) {
-                          notifier.disable();
-                        } else {
-                          notifier.enable();
-                        }
-                      },
-                      child: Container(
-                        width: 104,
-                        height: 104,
-                        decoration: BoxDecoration(
-                          color: voiceEnabled
-                              ? AppColors.primary
-                              : AppColors.accent,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: (voiceEnabled
-                                      ? AppColors.primary
-                                      : AppColors.accent)
-                                  .withValues(alpha: 0.34),
-                              blurRadius: 20,
-                              offset: const Offset(0, 6),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const AriaLogo(size: 36, showWordmark: false),
+                          const SizedBox(width: 8),
+                          Text(
+                            'aria',
+                            style: AppType.displaySerif.copyWith(
+                              fontSize: 24,
+                              color: AppColors.ink,
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text(
+                        _greeting(l10n),
+                        style: const TextStyle(
+                          fontFamily: kFontFamily,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.inkSoft,
                         ),
-                        child: Icon(
-                            voiceEnabled
-                                ? Icons.graphic_eq_rounded
-                                : Icons.mic_rounded,
-                            color: Colors.white,
-                            size: 48),
+                      ),
+                      Padding(
+                        // keep long names clear of the floated button
+                        padding: const EdgeInsets.only(right: 96),
+                        child: Text(
+                          name,
+                          style: const TextStyle(
+                            fontFamily: kFontFamily,
+                            fontSize: 42,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                            letterSpacing: -1.5,
+                            height: 1.1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Positioned(
+                    top: -2,
+                    right: 0,
+                    child: Semantics(
+                      button: true,
+                      label: 'Speech assist',
+                      child: GestureDetector(
+                        onTap: () {
+                          final notifier =
+                              ref.read(voiceControllerProvider.notifier);
+                          if (voiceEnabled) {
+                            notifier.disable();
+                          } else {
+                            notifier.enable();
+                          }
+                        },
+                        child: Container(
+                          width: 96,
+                          height: 96,
+                          decoration: BoxDecoration(
+                            color: voiceEnabled
+                                ? AppColors.primary
+                                : AppColors.accent,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: (voiceEnabled
+                                        ? AppColors.primary
+                                        : AppColors.accent)
+                                    .withValues(alpha: 0.30),
+                                blurRadius: 16,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                              voiceEnabled
+                                  ? Icons.graphic_eq_rounded
+                                  : Icons.mic_rounded,
+                              color: Colors.white,
+                              size: 46),
+                        ),
                       ),
                     ),
                   ),
                 ],
-              ),
-
-              const SizedBox(height: AppSpacing.xl),
-
-              // ── Greeting ─────────────────────────────────────────────────
-              Text(
-                _greeting(l10n),
-                style: const TextStyle(
-                  fontFamily: kFontFamily,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.inkSoft,
-                ),
-              ),
-              Text(
-                name,
-                style: const TextStyle(
-                  fontFamily: kFontFamily,
-                  fontSize: 42,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                  letterSpacing: -1.5,
-                  height: 1.1,
-                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(l10n?.readyWalk ?? 'Ready to take a mindful walk?',
@@ -183,13 +182,13 @@ class HomeScreen extends ConsumerWidget {
                   Expanded(child: _MiniStatCard(
                     icon: Icons.directions_walk,
                     value: '${stats.last?.steps ?? 0}',
-                    caption: 'steps',
+                    caption: l10n?.captionSteps ?? 'steps',
                   )),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(child: _MiniStatCard(
                     icon: Icons.timer_rounded,
                     value: '${stats.last?.duration.inMinutes ?? 0}',
-                    caption: 'min',
+                    caption: l10n?.captionMin ?? 'min',
                   )),
                 ],
               ),
@@ -452,7 +451,7 @@ class _SensorRow extends StatelessWidget {
           AppColors.field,
           Icons.add_circle_outline,
           AppColors.notConnected,
-          'Tap to connect',
+          l10n?.tapToConnect ?? 'Tap to connect',
         ),
     };
 
@@ -533,9 +532,11 @@ class _WatchHrvTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Apple Watch',
+                    Text(AppLocalizations.of(context)?.appleWatch ??
+                        'Apple Watch',
                         style: AppType.h2.copyWith(fontSize: 17)),
-                    Text('Live Heart Rate',
+                    Text(AppLocalizations.of(context)?.liveHeartRate ??
+                        'Live Heart Rate',
                         style: AppType.label),
                   ],
                 ),
@@ -583,9 +584,11 @@ class _WatchCadenceTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Watch Cadence',
+                    Text(AppLocalizations.of(context)?.watchCadenceTitle ??
+                        'Watch Cadence',
                         style: AppType.h2.copyWith(fontSize: 17)),
-                    Text('Step pace via Apple Watch', style: AppType.label),
+                    Text(AppLocalizations.of(context)?.watchCadenceSub ??
+                        'Step pace via Apple Watch', style: AppType.label),
                   ],
                 ),
               ),
@@ -632,9 +635,11 @@ class _ImuTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Arduino IMU',
+                    Text(AppLocalizations.of(context)?.arduinoImu ??
+                        'Arduino IMU',
                         style: AppType.h2.copyWith(fontSize: 17)),
-                    Text('Live IMU data', style: AppType.label),
+                    Text(AppLocalizations.of(context)?.liveImuData ??
+                        'Live IMU data', style: AppType.label),
                   ],
                 ),
               ),
@@ -681,9 +686,11 @@ class _CadenceTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Cadence Tracker',
+                    Text(AppLocalizations.of(context)?.cadenceTrackerTitle ??
+                        'Cadence Tracker',
                         style: AppType.h2.copyWith(fontSize: 17)),
-                    Text('Step pace & beat sync', style: AppType.label),
+                    Text(AppLocalizations.of(context)?.cadenceTrackerSub ??
+                        'Step pace & beat sync', style: AppType.label),
                   ],
                 ),
               ),

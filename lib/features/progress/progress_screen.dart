@@ -94,6 +94,7 @@ class _EmptyRecent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
       decoration: AppTheme.cardDecoration(radius: 18),
@@ -104,11 +105,14 @@ class _EmptyRecent extends StatelessWidget {
           const Icon(Icons.directions_walk_rounded,
               color: AppColors.inkFaint, size: 30),
           const SizedBox(height: AppSpacing.sm),
-          Text('No walks yet',
+          Text(l10n?.noWalksYet ?? 'No walks yet',
               style: AppType.h2.copyWith(fontSize: 16)),
           const SizedBox(height: 4),
-          Text('Your sessions will appear here once you start walking.',
-              style: AppType.label, textAlign: TextAlign.center),
+          Text(
+              l10n?.sessionsAppearHere ??
+                  'Your sessions will appear here once you start walking.',
+              style: AppType.label,
+              textAlign: TextAlign.center),
         ],
       ),
     );
@@ -270,9 +274,11 @@ class _ChartAndSummaryCardState extends State<_ChartAndSummaryCard> {
                       borderData: FlBorderData(show: false),
                       barTouchData: BarTouchData(
                         enabled: true,
+                        // Respond only to a completed tap (avoids flicker from
+                        // move/hover events firing setState repeatedly).
                         touchCallback:
                             (FlTouchEvent event, BarTouchResponse? response) {
-                          if (!event.isInterestedForInteractions) return;
+                          if (event is! FlTapUpEvent) return;
                           final idx =
                               response?.spot?.touchedBarGroupIndex;
                           if (idx == null) return;
@@ -329,6 +335,13 @@ class _ChartAndSummaryCardState extends State<_ChartAndSummaryCard> {
                                   ? null
                                   : AppColors.surfaceDeep,
                               borderRadius: BorderRadius.circular(10),
+                              // Full-height transparent backing so even a
+                              // zero/empty day is tappable.
+                              backDrawRodData: BackgroundBarChartRodData(
+                                show: true,
+                                toY: maxY,
+                                color: Colors.transparent,
+                              ),
                             ),
                           ]),
                       ],

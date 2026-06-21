@@ -16,7 +16,10 @@ class MedicationSearch {
     try {
       final uri = Uri.parse(
           '$_base?terms=${Uri.encodeQueryComponent(q)}&maxList=12');
-      final res = await http.get(uri).timeout(const Duration(seconds: 6));
+      final res = await http.get(uri, headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'aria-app/1.0',
+      }).timeout(const Duration(seconds: 8));
       if (res.statusCode != 200) return const [];
       // Format: [total, [codes], {extras}|null, [[display], ...]]
       final data = jsonDecode(res.body) as List;

@@ -46,12 +46,13 @@ class ArduinoBackSensorSource implements SensorSource {
         SensorConnState.pairing,
       ArduinoBleState.disconnected => SensorConnState.notConnected,
     };
-    // Ankles aren't part of this real flow — report them pre-connected so
-    // SensorStatusMap.allConnected gates only on the real back sensor.
+    // Honest reporting: only the back sensor is real hardware. The ankles
+    // aren't wired, so they show as not connected rather than falsely "ready".
+    // Session readiness gates on [expectedLocations] (just the back sensor).
     return SensorStatusMap({
       SensorLocation.lowerBack: lowerBackState,
-      SensorLocation.ankleLeft: SensorConnState.connected,
-      SensorLocation.ankleRight: SensorConnState.connected,
+      SensorLocation.ankleLeft: SensorConnState.notConnected,
+      SensorLocation.ankleRight: SensorConnState.notConnected,
     });
   }
 
@@ -66,14 +67,11 @@ class ArduinoBackSensorSource implements SensorSource {
 
     await _ble.startScan();
 
-    final match = _ble.scanResults.where((r) => r.advertisementData.serviceUuids
-        .any((u) => u.str.toLowerCase() == ArduinoBleService.serviceUuid));
-    if (match.isEmpty) {
-      // _ble surfaces "no device found" via its own errorMessage/onChange;
-      // nothing else to do here.
-      return;
-    }
-    await _ble.connect(match.first.device);
+    // ArduinoBleService already filters scan results to the Nano 33 BLE
+    // (by advertised service UUID or recognisable name), so connect to the
+    // first match. If none, _ble surfaces "no device found" via onChange.
+    if (_ble.scanResults.isEmpty) return;
+    await _ble.connect(_ble.scanResults.first.device);
   }
 
   @override

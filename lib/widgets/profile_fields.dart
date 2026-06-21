@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../core/theme/tokens.dart';
+import '../l10n/app_localizations.dart';
 import '../services/medication/medication_search.dart';
 
 /// Shared profile/onboarding form fields so both screens look and behave
@@ -107,6 +108,7 @@ class BirthdateField extends StatelessWidget {
   }
 
   Future<void> _pick(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
     var temp = date ?? DateTime(now.year - 70, now.month, now.day);
     final picked = await showModalBottomSheet<DateTime>(
@@ -128,14 +130,14 @@ class BirthdateField extends StatelessWidget {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Cancel'),
+                      child: Text(l10n?.cancel ?? 'Cancel'),
                     ),
-                    Text('Birth date',
+                    Text(l10n?.birthDate ?? 'Birth date',
                         style: AppType.h2.copyWith(fontSize: 16)),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, temp),
-                      child: const Text('Done',
-                          style: TextStyle(
+                      child: Text(l10n?.doneWord ?? 'Done',
+                          style: const TextStyle(
                               color: AppColors.primary,
                               fontWeight: FontWeight.w700)),
                     ),
@@ -162,11 +164,13 @@ class BirthdateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text =
-        date == null ? 'Select date' : DateFormat('MMMM d, yyyy').format(date!);
+    final l10n = AppLocalizations.of(context);
+    final text = date == null
+        ? (l10n?.selectDate ?? 'Select date')
+        : DateFormat('MMMM d, yyyy').format(date!);
     final age = date == null ? null : ageFrom(date!);
     return _FieldShell(
-      label: label,
+      label: l10n?.birthDate ?? label,
       child: InkWell(
         borderRadius: BorderRadius.circular(_fieldRadius),
         onTap: () => _pick(context),
@@ -198,7 +202,7 @@ class BirthdateField extends StatelessWidget {
                     color: AppColors.primarySoft,
                     borderRadius: BorderRadius.circular(AppRadii.pill),
                   ),
-                  child: Text('Age $age',
+                  child: Text('${l10n?.ageWord ?? 'Age'} $age',
                       style: AppType.label.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w700)),
@@ -228,13 +232,14 @@ class RelationshipDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final current = (value != null && options.contains(value)) ? value : null;
     return _FieldShell(
-      label: 'Relationship',
+      label: l10n?.fieldRelationship ?? 'Relationship',
       child: DropdownButtonFormField<String>(
         initialValue: current,
         isExpanded: true,
-        hint: Text('Select relationship',
+        hint: Text(l10n?.selectRelationship ?? 'Select relationship',
             style: AppType.h2.copyWith(fontSize: 18, color: AppColors.inkFaint)),
         icon: const Icon(Icons.expand_more_rounded, color: AppColors.inkFaint),
         style: AppType.h2.copyWith(fontSize: 18, color: AppColors.ink),
@@ -289,10 +294,11 @@ class PhoneField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final current =
         codes.any((c) => c.$2 == dialCode) ? dialCode : codes.first.$2;
     return _FieldShell(
-      label: 'Phone',
+      label: l10n?.fieldPhone ?? 'Phone',
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -328,7 +334,8 @@ class PhoneField extends StatelessWidget {
               keyboardType: TextInputType.phone,
               onChanged: onNumberChanged,
               style: AppType.h2.copyWith(fontSize: 18),
-              decoration: _fieldDecoration(hint: 'Phone number'),
+              decoration: _fieldDecoration(
+                  hint: l10n?.phoneNumber ?? 'Phone number'),
             ),
           ),
         ],
@@ -362,15 +369,21 @@ class _MedicationFieldState extends State<MedicationField> {
     super.dispose();
   }
 
+  String _query = '';
+
   void _onQuery(String value) {
     _debounce?.cancel();
-    if (value.trim().length < 2) {
-      setState(() => _suggestions = const []);
+    _query = value.trim();
+    if (_query.length < 2) {
+      setState(() {
+        _suggestions = const [];
+        _loading = false;
+      });
       return;
     }
     setState(() => _loading = true);
     _debounce = Timer(const Duration(milliseconds: 300), () async {
-      final results = await MedicationSearch.suggest(value);
+      final results = await MedicationSearch.suggest(_query);
       if (!mounted) return;
       setState(() {
         _suggestions = results;
@@ -384,7 +397,10 @@ class _MedicationFieldState extends State<MedicationField> {
       widget.onChanged([...widget.meds, med]);
     }
     _q.clear();
-    setState(() => _suggestions = const []);
+    setState(() {
+      _suggestions = const [];
+      _query = '';
+    });
   }
 
   void _remove(String med) =>
@@ -392,8 +408,9 @@ class _MedicationFieldState extends State<MedicationField> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return _FieldShell(
-      label: 'Medications',
+      label: l10n?.medicationsLabel ?? 'Medications',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -427,7 +444,9 @@ class _MedicationFieldState extends State<MedicationField> {
               if (t.isNotEmpty) _add(t);
             },
             style: AppType.h2.copyWith(fontSize: 18),
-            decoration: _fieldDecoration(hint: 'Type to search…').copyWith(
+            decoration:
+                _fieldDecoration(hint: l10n?.typeToSearch ?? 'Type to search…')
+                    .copyWith(
               suffixIcon: _loading
                   ? const Padding(
                       padding: EdgeInsets.all(12),
@@ -473,6 +492,37 @@ class _MedicationFieldState extends State<MedicationField> {
                       ),
                     ),
                 ],
+              ),
+            )
+          // No suggestions came back — let the user add what they typed.
+          else if (!_loading &&
+              _query.length >= 2 &&
+              !widget.meds.contains(_query))
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: InkWell(
+                onTap: () => _add(_query),
+                borderRadius: BorderRadius.circular(_fieldRadius),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceSunk,
+                    borderRadius: BorderRadius.circular(_fieldRadius),
+                    border: Border.all(color: AppColors.line),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.add_circle_outline,
+                          size: 18, color: AppColors.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text('${l10n?.addWord ?? 'Add'} “$_query”',
+                            style: AppType.body.copyWith(fontSize: 15)),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
         ],

@@ -59,8 +59,9 @@ class InterventionScreen extends ConsumerWidget {
         : (digits.startsWith('+') ? digits : '$code$digits');
     if (dial.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(l10n?.noContactSaved ??
               'No emergency contact saved. Add one in your profile.'),
         ));
       }

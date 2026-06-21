@@ -38,6 +38,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^3.3.1
   just_audio: ^0.10.5
+  audio_session: ^0.2.3
   url_launcher: ^6.3.2
   csv: ^8.0.0
   shared_preferences: ^2.5.5
@@ -84,6 +85,7 @@ flutter:
   assets:
     - assets/images/aria_logo.png
     - assets/images/aria_body.png
+    - assets/images/body_figure.png
     - assets/models/
     - assets/sounds/
 

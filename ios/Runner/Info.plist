@@ -76,5 +76,20 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>nlm.nih.gov</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>TLSv1.0</string>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>
