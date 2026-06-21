@@ -61,8 +61,8 @@ class _CadenceScreenState extends ConsumerState<CadenceScreen>
     _cadenceSub = _cadence.onCadence.listen((spm) {
       if (!mounted) return;
       setState(() => _displayedSpm = spm);
-      // Only update beat tempo after stabilization and if change is ≥10 SPM.
-      if (_beatOn && !_stabilizing && (spm - _lastSetBpm).abs() >= 10) {
+      // Only update beat tempo after stabilization and if change is ≥4 SPM.
+      if (_beatOn && !_stabilizing && (spm - _lastSetBpm).abs() >= 4) {
         _lastSetBpm = spm;
         _beat.setTempo(spm);
       }

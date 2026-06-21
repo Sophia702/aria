@@ -21,7 +21,7 @@ class CadenceService {
   static const double _threshold = 0.25;   // g above EMA to trigger step
   static const double _hysteresis = 0.15;  // g below EMA to reset trigger (wider band = fewer false resets)
   static const int _deadTimeMs = 400;      // min ms between steps (~150 SPM max, eliminates double-fire)
-  static const int _windowSize = 6;        // inter-step intervals to average
+  static const int _windowSize = 3;        // inter-step intervals to average
 
   // ── State ─────────────────────────────────────────────────────────────────
   double _ema = 1.0;
