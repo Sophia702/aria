@@ -17,15 +17,25 @@ enum BeatSound {
 
 /// MVP cue: a continuous metronome.
 ///
-/// Synthesises one beat as a 16-bit PCM WAV at the exact target tempo and
-/// loops it gaplessly (LoopMode.one). Changing tempo or sound regenerates
-/// the buffer so timing stays sample-accurate with no binary assets to ship.
+/// Synthesises one beat as a 16-bit PCM WAV at a reference tempo and loops it
+/// gaplessly (LoopMode.one). Small tempo changes are applied as a playback
+/// *speed* multiplier (just_audio's setSpeed) — a continuous adjustment with
+/// no stop/restart, so re-tempoing doesn't produce an audible jump. Only a
+/// large drift from the reference tempo (where speeding up would noticeably
+/// shift pitch) or an explicit sound change regenerates the buffer.
 class MetronomeCueEngine implements CueEngine {
   MetronomeCueEngine();
 
   final AudioPlayer _player = AudioPlayer();
   static const int _sampleRate = 22050;
-  double _bpm = 100;
+
+  // Speed multiplier stays in this range before we reload at a new reference
+  // tempo instead — beyond it pitch shift becomes noticeable.
+  static const double _maxSpeedDrift = 1.4;
+  static const double _minSpeedDrift = 0.7;
+
+  double _bpm = 100; // displayed / logical tempo
+  double _referenceBpm = 100; // tempo the loaded buffer was encoded at
   double _volume = 0.9;
   bool _playing = false;
   int _fileSeq = 0;
@@ -48,7 +58,9 @@ class MetronomeCueEngine implements CueEngine {
   @override
   Future<void> startCue({required double bpm}) async {
     _bpm = bpm.clamp(30, 240);
+    _referenceBpm = _bpm;
     await _loadBeat();
+    await _player.setSpeed(1.0);
     await _player.setVolume(_volume);
     unawaited(_player.play());
     _playing = true;
@@ -57,16 +69,28 @@ class MetronomeCueEngine implements CueEngine {
   @override
   Future<void> setTempo(double bpm) async {
     _bpm = bpm.clamp(30, 240);
-    if (_playing) {
+    if (!_playing) return;
+
+    final ratio = _bpm / _referenceBpm;
+    if (ratio > _maxSpeedDrift || ratio < _minSpeedDrift) {
+      // Drifted too far for a clean speed change — reload at a new
+      // reference tempo (the rare, audible-jump path).
+      _referenceBpm = _bpm;
       await _loadBeat();
+      await _player.setSpeed(1.0);
       unawaited(_player.play());
+    } else {
+      // Continuous, glitch-free re-tempo: same buffer, new playback rate.
+      await _player.setSpeed(ratio);
     }
   }
 
   Future<void> setSound(BeatSound sound) async {
     _sound = sound;
+    _referenceBpm = _bpm;
     if (_playing) {
       await _loadBeat();
+      await _player.setSpeed(1.0);
       unawaited(_player.play());
     }
   }
@@ -90,7 +114,7 @@ class MetronomeCueEngine implements CueEngine {
   }
 
   Future<void> _loadBeat() async {
-    final bytes = _encodeBeatWav(_bpm, _sampleRate, _sound);
+    final bytes = _encodeBeatWav(_referenceBpm, _sampleRate, _sound);
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/aria_click_${_fileSeq++}.wav');
     await file.writeAsBytes(bytes, flush: true);

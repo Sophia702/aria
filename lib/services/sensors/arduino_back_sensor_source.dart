@@ -12,9 +12,16 @@ import 'sensor_source.dart';
 /// wired up so far; ankles are stubbed "connected" since this mode doesn't
 /// use them).
 ///
-/// Emits 3-feature [ImuSample]s (accX, accY, accZ — used as the model's
-/// AccV/AccML/AccAP) from [ArduinoBleService.readings]; gyro is dropped since
-/// the back-sensor FoG model was trained on accelerometer only.
+/// Board is mounted vertically. Emits 3-feature [ImuSample]s in
+/// [AccV, AccML, AccAP] order — [r.accY, r.accX, r.accZ] from
+/// [ArduinoBleService.readings] — matching the back-sensor FoG model's
+/// trained axis convention. Gyro is dropped since that model was trained on
+/// accelerometer only.
+///
+/// If the board is remounted again, re-derive this mapping: read live
+/// accX/Y/Z at rest (the axis near ±1g is AccV) and while tilting forward
+/// (the axis that stays flat is AccML; the one that shifts with AccV is
+/// AccAP).
 class ArduinoBackSensorSource implements SensorSource {
   ArduinoBackSensorSource(this._ble);
 
@@ -86,7 +93,10 @@ class ArduinoBackSensorSource implements SensorSource {
     _readingsSub = _ble.readings.listen((r) {
       _samples.add(ImuSample(
         tMillis: _stopwatch.elapsedMilliseconds,
-        features: Float32List.fromList([r.accX, r.accY, r.accZ]),
+        // Vertical-mounted board (confirmed live on-device): Y reads ~1g at
+        // rest (AccV); a forward tilt shifts gravity from Y into Z while X
+        // stays flat, so Z is fore-aft (AccAP) and X is side-to-side (AccML).
+        features: Float32List.fromList([r.accY, r.accX, r.accZ]),
       ));
     });
   }
