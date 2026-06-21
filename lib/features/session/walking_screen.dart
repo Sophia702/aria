@@ -12,11 +12,13 @@ import '../../widgets/equalizer_bars.dart';
 import '../../widgets/pulse_ring.dart';
 import 'intervention_screen.dart';
 import 'summary_screen.dart';
+import 'package:just_audio/just_audio.dart';
 
 /// Live walk screen. Light paper background. "Help & Respiration" button always
 /// visible. Intervention screen surfaces on freeze prediction.
 class WalkingScreen extends ConsumerStatefulWidget {
-  const WalkingScreen({super.key});
+  const WalkingScreen({super.key, this.soundFile});
+  final String? soundFile;
 
   @override
   ConsumerState<WalkingScreen> createState() => _WalkingScreenState();
@@ -24,6 +26,23 @@ class WalkingScreen extends ConsumerStatefulWidget {
 
 class _WalkingScreenState extends ConsumerState<WalkingScreen> {
   bool _interventionOpen = false;
+  final _player = AudioPlayer();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.soundFile != null) {
+      _player.setAsset(widget.soundFile!);
+      _player.setLoopMode(LoopMode.one);
+      _player.play();
+    }
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
 
   Color _ringColor(FogState s) => switch (s) {
         FogState.normal => AppColors.connected,

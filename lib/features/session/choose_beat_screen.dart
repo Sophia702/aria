@@ -9,6 +9,7 @@ import '../../providers/providers.dart';
 import '../../widgets/equalizer_bars.dart';
 import '../../widgets/gradient_button.dart';
 import 'walking_screen.dart';
+import 'package:just_audio/just_audio.dart';
 
 class ChooseBeatScreen extends ConsumerStatefulWidget {
   const ChooseBeatScreen({super.key});
@@ -18,30 +19,12 @@ class ChooseBeatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
-  List<({String name, String sub, int bpm})> _buildBeats(
-          AppLocalizations? l10n) =>
-      [
-        (
-          name: l10n?.beatSteady ?? 'Steady',
-          sub: l10n?.beatSteadySub ?? 'Calm and even',
-          bpm: 96
-        ),
-        (
-          name: l10n?.beatGentle ?? 'Gentle',
-          sub: l10n?.beatGentleSub ?? 'Easy walking pace',
-          bpm: 84
-        ),
-        (
-          name: l10n?.beatBrisk ?? 'Brisk',
-          sub: l10n?.beatBriskSub ?? 'A little brisker',
-          bpm: 112
-        ),
-        (
-          name: l10n?.beatForest ?? 'Forest calm',
-          sub: l10n?.beatForestSub ?? 'Gentle woodland rhythm',
-          bpm: 92
-        ),
-      ];
+  static const _beats = [
+    (name: 'Valse Gymnopedie',      sub: 'Gentle and graceful',  bpm: 77,  file: 'assets/sounds/Valse Gymnopedie (77 bpm).wav'),
+    (name: 'Infinite Perspective',  sub: 'Easy flowing pace',    bpm: 80,  file: 'assets/sounds/Infinite Perspective (80 bpm).wav'),
+    (name: 'Evening',               sub: 'Calm evening walk',    bpm: 101, file: 'assets/sounds/Evening (101 bpm).wav'),
+    (name: 'Kawai Kitsune',         sub: 'Upbeat and energetic', bpm: 116, file: 'assets/sounds/Kawai Kitsune (116 bpm).wav'),
+  ];
 
   static const _songs = [
     (title: 'Vampire', artist: 'Olivia Rodrigo', bpm: 88),
@@ -52,23 +35,38 @@ class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
   int _beatSelected = 0;
   int _songSelected = 0;
   bool _songsTab = false;
+  final _previewPlayer = AudioPlayer();
+
+  Future<void> _previewBeat(int index) async {
+    setState(() => _beatSelected = index);
+    await _previewPlayer.stop();
+    await _previewPlayer.setAsset(_beats[index].file);
+    await _previewPlayer.setLoopMode(LoopMode.one);
+    await _previewPlayer.play();
+  }
 
   Future<void> _choose(AppLocalizations? l10n) async {
-    final beats = _buildBeats(l10n);
+    await _previewPlayer.stop();
     final bpm = _songsTab
         ? _songs[_songSelected].bpm.toDouble()
-        : beats[_beatSelected].bpm.toDouble();
+        : _beats[_beatSelected].bpm.toDouble();
+    final soundFile = _songsTab ? null : _beats[_beatSelected].file;
     await ref.read(sessionControllerProvider.notifier).startSession(bpm: bpm);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const WalkingScreen()),
+      MaterialPageRoute(builder: (_) => WalkingScreen(soundFile: soundFile)),
     );
+  }
+
+  @override
+  void dispose() {
+    _previewPlayer.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final beats = _buildBeats(l10n);
     return Scaffold(
       body: AppTheme.pageBackground(
         child: SafeArea(
@@ -90,7 +88,10 @@ class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
                   songs: _songsTab,
                   beatsLabel: l10n?.beatsTab ?? 'Beats',
                   songsLabel: l10n?.songsTab ?? 'Songs',
-                  onSelect: (s) => setState(() => _songsTab = s),
+                  onSelect: (s) async {
+                    await _previewPlayer.stop();
+                    setState(() => _songsTab = s);
+                  },
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Expanded(
@@ -106,13 +107,13 @@ class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
                           ),
                         )
                       : ListView.builder(
-                          itemCount: beats.length,
+                          itemCount: _beats.length,
                           itemBuilder: (context, i) => _BeatTile(
-                            name: beats[i].name,
-                            sub: beats[i].sub,
-                            bpm: beats[i].bpm,
+                            name: _beats[i].name,
+                            sub: _beats[i].sub,
+                            bpm: _beats[i].bpm,
                             selected: i == _beatSelected,
-                            onTap: () => setState(() => _beatSelected = i),
+                            onTap: () => _previewBeat(i),
                           ),
                         ),
                 ),
