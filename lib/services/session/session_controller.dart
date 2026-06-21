@@ -42,9 +42,19 @@ class SessionController extends Notifier<SessionSnapshot> {
   StreamSubscription<double>? _imuCadenceSub;
   CadenceService? _imuCadence;
 
+  // Non-null when the active beat is a synthesized click (BeatKind.click) —
+  // the cue plays it audibly and re-tempos with live cadence. Null means a
+  // music beat is active; WalkingScreen owns that audio and retempo itself,
+  // so the cue stays silent (volume 0) but keeps running for ring/state sync.
+  BeatSound? _activeSound;
+  double _lastAppliedBpm = 0;
+  static const double _retempoThresholdSpm = 4.0;
+
   int _sinceStep = 0;
   Timer? _ticker;
+  Timer? _calibrationTimer;
   DateTime? _walkStart;
+  static const Duration _calibrationDuration = Duration(seconds: 5);
 
   @override
   SessionSnapshot build() {
@@ -63,6 +73,7 @@ class SessionController extends Notifier<SessionSnapshot> {
       _sampleSub?.cancel();
       _interventionSub?.cancel();
       _ticker?.cancel();
+      _calibrationTimer?.cancel();
       _stopLiveCadence();
     });
 
@@ -89,10 +100,50 @@ class SessionController extends Notifier<SessionSnapshot> {
     });
   }
 
+  // Below this, the person has effectively stopped — treat it as a freeze
+  // regardless of what the FoG model says, and surface the intervention.
+  static const double _lowCadenceFreezeSpm = 25.0;
+
   void _applyLiveCadence(double spm) {
-    if (state.state == SessionState.walkingNormal ||
-        state.state == SessionState.intervention) {
-      state = state.copyWith(stepsPerMin: spm);
+    if (state.state != SessionState.walkingNormal &&
+        state.state != SessionState.intervention &&
+        state.state != SessionState.calibrating) {
+      return;
+    }
+    state = state.copyWith(stepsPerMin: spm);
+
+    // During calibration we only measure — no retempo, no freeze-triggered
+    // intervention yet (gait right at walk-start is naturally irregular).
+    if (state.state == SessionState.calibrating) return;
+
+    if (spm > 0 && spm < _lowCadenceFreezeSpm) {
+      // Reuses the same debounced request pipeline as FoG predictions, so it
+      // won't spam the UI while cadence stays low — one request per episode.
+      intervention.onFogState(FogState.freezing);
+    }
+
+    // Only re-tempo on a noticeable pace change — same anti-jitter threshold
+    // the Cadence Tracker used. A click beat re-tempos the cue directly
+    // (glitch-free via CueEngine's speed-based retempo); a music beat is
+    // retempoed by WalkingScreen itself, which also watches stepsPerMin.
+    if ((spm - _lastAppliedBpm).abs() < _retempoThresholdSpm) return;
+    _lastAppliedBpm = spm;
+    if (_activeSound != null) {
+      cue.setTempo(spm);
+    }
+    state = state.copyWith(bpm: spm);
+  }
+
+  /// Calibration ends: lock in the measured cadence immediately rather than
+  /// waiting for the next ≥4 SPM threshold crossing.
+  void _endCalibration() {
+    if (state.state != SessionState.calibrating) return;
+    state = state.copyWith(state: SessionState.walkingNormal);
+    final spm = state.stepsPerMin;
+    if (spm > 0) {
+      _lastAppliedBpm = spm;
+      if (_activeSound != null) cue.setTempo(spm);
+      state = state.copyWith(bpm: spm);
     }
   }
 
@@ -106,10 +157,15 @@ class SessionController extends Notifier<SessionSnapshot> {
   }
 
   /// Begin a walking session. [bpm] is the baseline cadence from calibration
-  /// (steps/min); for M1 it's passed in directly.
-  Future<void> startSession({double bpm = 100}) async {
+  /// (steps/min); for M1 it's passed in directly. [sound] is non-null for a
+  /// click beat (cue plays it audibly); null means a music beat is active
+  /// (WalkingScreen owns that audio, so the cue is muted but kept running for
+  /// ring/state sync).
+  Future<void> startSession({double bpm = 100, BeatSound? sound}) async {
     _window.clear();
     _sinceStep = 0;
+    _activeSound = sound;
+    _lastAppliedBpm = bpm;
 
     await model.load();
 
@@ -123,13 +179,18 @@ class SessionController extends Notifier<SessionSnapshot> {
     }
 
     await cue.init();
+    if (sound != null) await cue.setSound(sound);
     await cue.startCue(bpm: bpm);
-    await cue.setVolume(await AppPrefs.cueVolume() / 100.0);
+    await cue.setVolume(sound != null ? await AppPrefs.cueVolume() / 100.0 : 0);
     await sensors.start();
     _sampleSub = sensors.samples.listen(_onSample);
 
+    // Beat plays immediately at the chosen tempo; for the first
+    // [_calibrationDuration] we just measure real cadence — no retempo, no
+    // freeze-triggered intervention — so a few seconds of step intervals can
+    // settle before anything reacts to them.
     state = state.copyWith(
-      state: SessionState.walkingNormal,
+      state: SessionState.calibrating,
       fogState: FogState.normal,
       fogProbability: 0,
       bpm: bpm,
@@ -151,11 +212,20 @@ class SessionController extends Notifier<SessionSnapshot> {
     });
 
     _startLiveCadence();
+
+    _calibrationTimer?.cancel();
+    _calibrationTimer = Timer(_calibrationDuration, _endCalibration);
   }
 
-  /// Switch the cue tempo mid-walk (from the walking screen's beat picker).
-  Future<void> changeTempo(double bpm) async {
+  /// Switch the active beat mid-walk (from the walking screen's beat picker).
+  /// [sound] non-null switches to a click beat (cue plays it audibly);
+  /// null switches to a music beat (cue goes silent; WalkingScreen plays it).
+  Future<void> changeTempo(double bpm, {BeatSound? sound}) async {
+    _activeSound = sound;
+    _lastAppliedBpm = bpm;
+    if (sound != null) await cue.setSound(sound);
     await cue.setTempo(bpm);
+    await cue.setVolume(sound != null ? await AppPrefs.cueVolume() / 100.0 : 0);
     state = state.copyWith(bpm: bpm);
   }
 
@@ -170,13 +240,17 @@ class SessionController extends Notifier<SessionSnapshot> {
   }
 
   void _applyPrediction(FogPrediction p) {
-    // Forward to the intervention manager (it decides whether to surface one).
-    intervention.onFogState(p.state);
-
-    // Don't overwrite the screen while an intervention is showing.
-    final nextSessionState = state.state == SessionState.intervention
-        ? SessionState.intervention
-        : SessionState.walkingNormal;
+    // FoG predictions only drive the ring colour / status pill here — the
+    // intervention screen is triggered solely by low live cadence (see
+    // _applyLiveCadence), not by the model's verdict.
+    //
+    // Don't overwrite the screen while an intervention is showing or
+    // calibration is still running.
+    final nextSessionState = switch (state.state) {
+      SessionState.intervention => SessionState.intervention,
+      SessionState.calibrating => SessionState.calibrating,
+      _ => SessionState.walkingNormal,
+    };
 
     state = state.copyWith(
       state: nextSessionState,
@@ -211,6 +285,8 @@ class SessionController extends Notifier<SessionSnapshot> {
     _sampleSub = null;
     _ticker?.cancel();
     _ticker = null;
+    _calibrationTimer?.cancel();
+    _calibrationTimer = null;
     _stopLiveCadence();
     await sensors.stop();
     await cue.stopCue();

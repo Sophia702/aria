@@ -18,8 +18,8 @@ import 'package:just_audio/just_audio.dart';
 /// Live walk screen. Light paper background. "Help & Respiration" button always
 /// visible. Intervention screen surfaces on freeze prediction.
 class WalkingScreen extends ConsumerStatefulWidget {
-  const WalkingScreen({super.key, this.soundFile});
-  final String? soundFile;
+  const WalkingScreen({super.key, this.beat});
+  final Beat? beat;
 
   @override
   ConsumerState<WalkingScreen> createState() => _WalkingScreenState();
@@ -28,19 +28,38 @@ class WalkingScreen extends ConsumerStatefulWidget {
 class _WalkingScreenState extends ConsumerState<WalkingScreen> {
   bool _interventionOpen = false;
   final _player = AudioPlayer();
-  late String _beatName;
+  late Beat _currentBeat;
+  double _lastMusicSpm = 0;
+
+  // Music tracks don't get reloaded to re-tempo (unlike the synthesized
+  // click), so the speed ratio can just be clamped directly — no pitch-safe
+  // "reload at large drift" step needed.
+  static const double _minMusicSpeed = 0.6;
+  static const double _maxMusicSpeed = 1.6;
 
   @override
   void initState() {
     super.initState();
-    // Derive the starting beat name from the sound that was chosen.
-    final match = kBeats.where((b) => b.file == widget.soundFile);
-    _beatName = match.isNotEmpty ? match.first.name : 'Steady';
-    if (widget.soundFile != null) {
-      _player.setAsset(widget.soundFile!);
+    _currentBeat = widget.beat ??
+        const Beat(name: 'Steady', sub: '', bpm: 100, kind: BeatKind.click);
+    _lastMusicSpm = _currentBeat.bpm.toDouble();
+    if (_currentBeat.kind == BeatKind.music) {
+      _player.setAsset(_currentBeat.file!);
       _player.setLoopMode(LoopMode.one);
       _player.play();
     }
+  }
+
+  /// Re-tempo whichever beat is active to the live cadence. Click beats are
+  /// handled by SessionController/CueEngine; music tracks are owned here, so
+  /// scale playback speed directly — same anti-jitter threshold as the cue.
+  void _retempoMusic(double spm) {
+    if (_currentBeat.kind != BeatKind.music) return;
+    if ((spm - _lastMusicSpm).abs() < 4) return;
+    _lastMusicSpm = spm;
+    final ratio =
+        (spm / _currentBeat.bpm).clamp(_minMusicSpeed, _maxMusicSpeed);
+    _player.setSpeed(ratio);
   }
 
   /// Tapping the now-playing strip opens a picker to switch the beat live:
@@ -63,12 +82,18 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
             const SizedBox(height: AppSpacing.sm),
             for (final b in kBeats)
               ListTile(
-                leading: const Icon(Icons.music_note_rounded,
+                leading: Icon(
+                    b.kind == BeatKind.click
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.music_note_rounded,
                     color: AppColors.primary),
                 title: Text(b.name, style: AppType.h2.copyWith(fontSize: 17)),
-                subtitle: Text('${b.sub} · ${b.bpm} bpm',
+                subtitle: Text(
+                    b.kind == BeatKind.click
+                        ? '${b.sub} · adjusts to your pace'
+                        : '${b.sub} · ${b.bpm} bpm',
                     style: AppType.label),
-                trailing: b.name == _beatName
+                trailing: b.name == _currentBeat.name
                     ? const Icon(Icons.check_rounded,
                         color: AppColors.primary)
                     : null,
@@ -80,13 +105,22 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
       ),
     );
     if (chosen == null || !mounted) return;
-    await ref
-        .read(sessionControllerProvider.notifier)
-        .changeTempo(chosen.bpm.toDouble());
-    await _player.setAsset(chosen.file);
-    await _player.setLoopMode(LoopMode.one);
-    await _player.play();
-    if (mounted) setState(() => _beatName = chosen.name);
+
+    await ref.read(sessionControllerProvider.notifier).changeTempo(
+          chosen.bpm.toDouble(),
+          sound: chosen.sound,
+        );
+
+    if (chosen.kind == BeatKind.music) {
+      await _player.setSpeed(1.0);
+      await _player.setAsset(chosen.file!);
+      await _player.setLoopMode(LoopMode.one);
+      await _player.play();
+    } else {
+      await _player.stop();
+    }
+    _lastMusicSpm = chosen.bpm.toDouble();
+    if (mounted) setState(() => _currentBeat = chosen);
   }
 
   @override
@@ -145,6 +179,9 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
       if (next.state == SessionState.intervention && !_interventionOpen) {
         _openIntervention();
       }
+      if (next.stepsPerMin != prev?.stepsPerMin) {
+        _retempoMusic(next.stepsPerMin);
+      }
     });
 
     final l10n = AppLocalizations.of(context);
@@ -156,6 +193,8 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
 
     final ringColor = _ringColor(s.fogState);
     final pill = _pillStyle(s.fogState);
+    final calibrating = s.state == SessionState.calibrating;
+    final calibrationSecondsLeft = (5 - s.elapsed.inSeconds).clamp(0, 5);
 
     return Scaffold(
       body: AppTheme.pageBackground(
@@ -233,36 +272,68 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
                   color: ringColor,
                   size: 230,
                   active: s.cuePlaying,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${s.stepsPerMin.round()}',
-                        style: const TextStyle(
-                          fontFamily: kFontFamily,
-                          fontSize: 56,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: -2,
-                          height: 1.0,
+                  child: calibrating
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$calibrationSecondsLeft',
+                              style: const TextStyle(
+                                fontFamily: kFontFamily,
+                                fontSize: 56,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -2,
+                                height: 1.0,
+                              ),
+                            ),
+                            const Text(
+                              'Calibrating…',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: kFontFamily),
+                            ),
+                            const Text(
+                              'walk naturally',
+                              style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontFamily: kFontFamily),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${s.stepsPerMin.round()}',
+                              style: const TextStyle(
+                                fontFamily: kFontFamily,
+                                fontSize: 56,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -2,
+                                height: 1.0,
+                              ),
+                            ),
+                            const Text(
+                              'steps / min',
+                              style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                  fontFamily: kFontFamily),
+                            ),
+                          ],
                         ),
-                      ),
-                      const Text(
-                        'steps / min',
-                        style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                            fontFamily: kFontFamily),
-                      ),
-                    ],
-                  ),
                 ),
 
                 const Spacer(),
 
                 // ── Now playing strip — tap to change the beat ────────
                 _NowPlayingStrip(
-                  beatName: _beatName,
+                  beatName: _currentBeat.name,
                   bpm: s.bpm,
                   playing: s.cuePlaying,
                   onTap: _pickBeat,

@@ -8,13 +8,6 @@ import 'package:path_provider/path_provider.dart';
 
 import 'cue_engine.dart';
 
-enum BeatSound {
-  click,      // crisp 1400 Hz transient
-  bell,       // soft C5 bell with harmonic overtone
-  woodblock,  // low percussive thud
-  chiptune,   // 8-bit square-wave bloop (Minecraft-inspired)
-}
-
 /// MVP cue: a continuous metronome.
 ///
 /// Synthesises one beat as a 16-bit PCM WAV at a reference tempo and loops it
@@ -85,6 +78,7 @@ class MetronomeCueEngine implements CueEngine {
     }
   }
 
+  @override
   Future<void> setSound(BeatSound sound) async {
     _sound = sound;
     _referenceBpm = _bpm;
@@ -135,6 +129,14 @@ class MetronomeCueEngine implements CueEngine {
         _synthWoodblock(pcm, sampleRate);
       case BeatSound.chiptune:
         _synthChiptune(pcm, sampleRate);
+      case BeatSound.marimba:
+        _synthMarimba(pcm, sampleRate);
+      case BeatSound.cowbell:
+        _synthCowbell(pcm, sampleRate);
+      case BeatSound.shaker:
+        _synthShaker(pcm, sampleRate);
+      case BeatSound.sonar:
+        _synthSonar(pcm, sampleRate);
     }
 
     return _wrapWav(pcm, sampleRate);
@@ -195,6 +197,61 @@ class MetronomeCueEngine implements CueEngine {
       }
       s *= (4 / pi); // normalise square-wave amplitude
       pcm[i] = (s * env * 16000).round().clamp(-32768, 32767);
+    }
+  }
+
+  static void _synthMarimba(Int16List pcm, int sampleRate) {
+    const clickMs = 140;
+    const freq = 196.0; // wooden mallet fundamental
+    final n = (sampleRate * clickMs / 1000).round().clamp(0, pcm.length);
+    for (var i = 0; i < n; i++) {
+      final t = i / sampleRate;
+      // Fundamental + a slightly inharmonic overtone, like a wooden bar.
+      final s = sin(2 * pi * freq * t) * exp(-t * 18) * 0.7 +
+          sin(2 * pi * freq * 3.96 * t) * exp(-t * 38) * 0.3;
+      pcm[i] = (s * 27000).round().clamp(-32768, 32767);
+    }
+  }
+
+  static void _synthCowbell(Int16List pcm, int sampleRate) {
+    const clickMs = 110;
+    const freq1 = 587.0; // D5
+    const freq2 = 845.0; // deliberately non-harmonic -> metallic clang
+    final n = (sampleRate * clickMs / 1000).round().clamp(0, pcm.length);
+    for (var i = 0; i < n; i++) {
+      final t = i / sampleRate;
+      final s1 = sin(2 * pi * freq1 * t).sign;
+      final s2 = sin(2 * pi * freq2 * t).sign;
+      final s = (s1 * 0.5 + s2 * 0.5) * exp(-t * 16);
+      pcm[i] = (s * 22000).round().clamp(-32768, 32767);
+    }
+  }
+
+  static void _synthShaker(Int16List pcm, int sampleRate) {
+    const clickMs = 45;
+    final n = (sampleRate * clickMs / 1000).round().clamp(0, pcm.length);
+    final rng = Random();
+    for (var i = 0; i < n; i++) {
+      final t = i / sampleRate;
+      final noise = rng.nextDouble() * 2 - 1;
+      final s = noise * exp(-t * 90);
+      pcm[i] = (s * 24000).round().clamp(-32768, 32767);
+    }
+  }
+
+  static void _synthSonar(Int16List pcm, int sampleRate) {
+    const clickMs = 220;
+    const freqStart = 1200.0;
+    const freqEnd = 700.0;
+    final n = (sampleRate * clickMs / 1000).round().clamp(0, pcm.length);
+    var phase = 0.0;
+    for (var i = 0; i < n; i++) {
+      final t = i / sampleRate;
+      final frac = t / (clickMs / 1000);
+      final freq = freqStart + (freqEnd - freqStart) * frac;
+      phase += 2 * pi * freq / sampleRate;
+      final s = sin(phase) * exp(-t * 8);
+      pcm[i] = (s * 26000).round().clamp(-32768, 32767);
     }
   }
 

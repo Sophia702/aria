@@ -7,6 +7,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/beats.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/providers.dart';
+import '../../services/cue/metronome_cue_engine.dart';
 import '../../widgets/equalizer_bars.dart';
 import '../../widgets/gradient_button.dart';
 import 'walking_screen.dart';
@@ -25,29 +26,47 @@ class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
   int _beatSelected = 0;
   bool _songsTab = false;
   final _previewPlayer = AudioPlayer();
+  final _previewCue = MetronomeCueEngine();
+  bool _previewCueReady = false;
 
   Future<void> _previewBeat(int index) async {
     setState(() => _beatSelected = index);
-    await _previewPlayer.stop();
-    await _previewPlayer.setAsset(_beats[index].file);
-    await _previewPlayer.setLoopMode(LoopMode.one);
-    await _previewPlayer.play();
+    final beat = _beats[index];
+    if (beat.kind == BeatKind.click) {
+      await _previewPlayer.stop();
+      if (!_previewCueReady) {
+        await _previewCue.init();
+        _previewCueReady = true;
+      }
+      await _previewCue.setSound(beat.sound!);
+      await _previewCue.startCue(bpm: beat.bpm.toDouble());
+    } else {
+      await _previewCue.stopCue();
+      await _previewPlayer.stop();
+      await _previewPlayer.setAsset(beat.file!);
+      await _previewPlayer.setLoopMode(LoopMode.one);
+      await _previewPlayer.play();
+    }
   }
 
   Future<void> _choose(AppLocalizations? l10n) async {
     await _previewPlayer.stop();
-    final bpm = _beats[_beatSelected].bpm.toDouble();
-    final soundFile = _beats[_beatSelected].file;
-    await ref.read(sessionControllerProvider.notifier).startSession(bpm: bpm);
+    await _previewCue.stopCue();
+    final beat = _beats[_beatSelected];
+    await ref.read(sessionControllerProvider.notifier).startSession(
+          bpm: beat.bpm.toDouble(),
+          sound: beat.sound,
+        );
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => WalkingScreen(soundFile: soundFile)),
+      MaterialPageRoute(builder: (_) => WalkingScreen(beat: beat)),
     );
   }
 
   @override
   void dispose() {
     _previewPlayer.dispose();
+    _previewCue.dispose();
     super.dispose();
   }
 
@@ -77,6 +96,7 @@ class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
                   songsLabel: l10n?.songsTab ?? 'Songs',
                   onSelect: (s) async {
                     await _previewPlayer.stop();
+                    await _previewCue.stopCue();
                     setState(() => _songsTab = s);
                   },
                 ),
@@ -90,6 +110,7 @@ class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
                             name: _beats[i].name,
                             sub: _beats[i].sub,
                             bpm: _beats[i].bpm,
+                            kind: _beats[i].kind,
                             selected: i == _beatSelected,
                             onTap: () => _previewBeat(i),
                           ),
@@ -194,23 +215,29 @@ class _BeatTile extends StatelessWidget {
     required this.name,
     required this.sub,
     required this.bpm,
+    required this.kind,
     required this.selected,
     required this.onTap,
   });
   final String name;
   final String sub;
   final int bpm;
+  final BeatKind kind;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final tempoLabel =
+        kind == BeatKind.click ? 'adjusts to your pace' : '$bpm bpm';
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Semantics(
         button: true,
         selected: selected,
-        label: '$name, $bpm beats per minute',
+        label: kind == BeatKind.click
+            ? '$name, adjusts to your pace'
+            : '$name, $bpm beats per minute',
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -230,7 +257,7 @@ class _BeatTile extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  // Equalizer waveform tile
+                  // Equalizer waveform tile (or a metronome icon for clicks)
                   Container(
                     width: 48,
                     height: 48,
@@ -241,17 +268,23 @@ class _BeatTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
-                      child: EqualizerBars(
-                        barCount: 5,
-                        color: selected
-                            ? AppColors.primary
-                            : AppColors.inkFaint,
-                        active: selected,
-                        barWidth: 3.0,
-                        gap: 2.5,
-                        minHeight: 3,
-                        maxHeight: 16,
-                      ),
+                      child: kind == BeatKind.click
+                          ? Icon(Icons.music_note_rounded,
+                              color: selected
+                                  ? AppColors.primary
+                                  : AppColors.inkFaint,
+                              size: 20)
+                          : EqualizerBars(
+                              barCount: 5,
+                              color: selected
+                                  ? AppColors.primary
+                                  : AppColors.inkFaint,
+                              active: selected,
+                              barWidth: 3.0,
+                              gap: 2.5,
+                              minHeight: 3,
+                              maxHeight: 16,
+                            ),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -263,7 +296,7 @@ class _BeatTile extends StatelessWidget {
                         Text(name,
                             style: AppType.h2.copyWith(fontSize: 18)),
                         const SizedBox(height: 2),
-                        Text('$sub · $bpm bpm',
+                        Text('$sub · $tempoLabel',
                             style: AppType.label),
                       ],
                     ),

@@ -1,3 +1,14 @@
+enum BeatSound {
+  click,      // crisp 1400 Hz transient
+  bell,       // soft C5 bell with harmonic overtone
+  woodblock,  // low percussive thud
+  chiptune,   // 8-bit square-wave bloop (Minecraft-inspired)
+  marimba,    // warm wooden mallet tone
+  cowbell,    // metallic two-tone clang
+  shaker,     // filtered noise burst
+  sonar,      // descending sine ping
+}
+
 /// Seam #3 — the rhythmic audio cue.
 ///
 /// Plays a CONTINUOUS rhythmic cue at a target tempo for the WHOLE session
@@ -14,6 +25,9 @@ abstract class CueEngine {
 
   /// Change tempo while playing (keeps the cue going).
   Future<void> setTempo(double bpm);
+
+  /// Switch the synthesized click sound (no-op for non-click cue engines).
+  Future<void> setSound(BeatSound sound);
 
   /// 0..1 volume.
   Future<void> setVolume(double volume01);
