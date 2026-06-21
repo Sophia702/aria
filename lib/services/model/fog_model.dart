@@ -17,6 +17,9 @@ abstract class FogModel {
   /// Expected features per timestep (24).
   int get featureCount;
 
+  /// Run inference once every [stepSize] new samples (sliding window hop).
+  int get stepSize;
+
   /// Load weights / warm up. Call once before [predict].
   Future<void> load();
 

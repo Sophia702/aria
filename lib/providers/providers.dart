@@ -6,10 +6,10 @@ import '../services/cue/cue_engine.dart';
 import '../services/cue/metronome_cue_engine.dart';
 import '../services/intervention/default_intervention_manager.dart';
 import '../services/intervention/intervention_manager.dart';
+import '../services/model/back_sensor_fog_model.dart';
 import '../services/model/fog_model.dart';
-import '../services/model/mock_fog_model.dart';
+import '../services/sensors/arduino_back_sensor_source.dart';
 import '../services/sensors/arduino_ble_service.dart';
-import '../services/sensors/mock_sensor_source.dart';
 import '../services/sensors/sensor_source.dart';
 import '../services/session/session_controller.dart';
 import '../services/session/session_state.dart';
@@ -34,20 +34,20 @@ final localeProvider =
 /// Set true to use the mic-free MockVoiceAssistant (e.g. on an emulator).
 const bool kUseMockVoice = false;
 
-/// Dependency wiring. To go from mock -> real (M4), change ONLY the concrete
-/// type constructed here — nothing in the UI or session logic changes:
-///   sensorSourceProvider : MockSensorSource -> BleSensorSource
-///   fogModelProvider     : MockFogModel     -> TfliteFogModel
+/// Dependency wiring — the real pipeline (single back-mounted Arduino):
+///   sensorSourceProvider : ArduinoBackSensorSource (wraps arduinoBleProvider)
+///   fogModelProvider     : BackSensorFogModel (assets/models/fog_model_back.tflite)
 ///   cueEngineProvider    : MetronomeCueEngine (+ audio_service for background)
+/// Swap either back to a Mock* implementation here for demos without hardware.
 
 final sensorSourceProvider = Provider<SensorSource>((ref) {
-  final s = MockSensorSource();
+  final s = ArduinoBackSensorSource(ref.watch(arduinoBleProvider));
   ref.onDispose(() => s.dispose());
   return s;
 });
 
 final fogModelProvider = Provider<FogModel>((ref) {
-  final m = MockFogModel();
+  final m = BackSensorFogModel();
   ref.onDispose(() => m.dispose());
   return m;
 });

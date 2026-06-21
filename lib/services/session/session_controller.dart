@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/sensor_schema.dart';
 import '../../data/models/fog_prediction.dart';
 import '../../data/models/imu_sample.dart';
 import '../../providers/providers.dart';
@@ -15,7 +14,7 @@ import 'session_state.dart';
 
 /// Wires the whole pipeline and exposes a [SessionSnapshot] the UI reacts to:
 ///
-///   SensorSource.samples -> WindowBuffer -> (every kStepSize) FogModel.predict
+///   SensorSource.samples -> WindowBuffer -> (every model.stepSize) FogModel.predict
 ///     -> FogState -> session-state transitions -> CueEngine (continuous) +
 ///        InterventionManager.
 ///
@@ -28,7 +27,7 @@ class SessionController extends Notifier<SessionSnapshot> {
   late final CueEngine cue;
   late final InterventionManager intervention;
 
-  final WindowBuffer _window = WindowBuffer();
+  late WindowBuffer _window;
   StreamSubscription? _sampleSub;
   StreamSubscription? _interventionSub;
 
@@ -41,6 +40,11 @@ class SessionController extends Notifier<SessionSnapshot> {
     model = ref.watch(fogModelProvider);
     cue = ref.watch(cueEngineProvider);
     intervention = ref.watch(interventionManagerProvider);
+
+    // Sized from the active model — different sensor/model pairs use
+    // different window/feature shapes (e.g. 256x3 for the back sensor).
+    _window = WindowBuffer(
+        windowSize: model.windowSize, featureCount: model.featureCount);
 
     _interventionSub = intervention.requests.listen(_onInterventionRequest);
     ref.onDispose(() {
@@ -86,7 +90,7 @@ class SessionController extends Notifier<SessionSnapshot> {
     _window.add(sample.features);
     _sinceStep++;
 
-    final shouldPredict = _window.isFull && _sinceStep >= kStepSize;
+    final shouldPredict = _window.isFull && _sinceStep >= model.stepSize;
     if (shouldPredict) {
       _sinceStep = 0;
       final prediction = model.predict(_window.snapshot());

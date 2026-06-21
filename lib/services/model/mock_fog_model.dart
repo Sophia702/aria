@@ -32,6 +32,9 @@ class MockFogModel implements FogModel {
   int get featureCount => kFeatureCount;
 
   @override
+  int get stepSize => kStepSize;
+
+  @override
   Future<void> load() async {}
 
   @override
