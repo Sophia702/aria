@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/daily_note.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../l10n/app_localizations.dart';
@@ -10,13 +11,14 @@ import '../../widgets/gradient_button.dart';
 /// Post-walk Summary. Newsreader serif for name, 2×2 stats grid,
 /// flat primarySoft stat tiles, quote card with "Today's note" eyebrow.
 class SummaryScreen extends ConsumerWidget {
-  const SummaryScreen({super.key, this.name = 'Margaret'});
-  final String name;
+  const SummaryScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final s = ref.watch(sessionControllerProvider);
+    // Name comes from the saved profile — identical everywhere in the app.
+    final name = ref.watch(userNameProvider).asData?.value ?? '';
     final minutes = s.elapsed.inSeconds / 60.0;
     final steps = (s.stepsPerMin * minutes).round();
     final mins =
@@ -84,7 +86,9 @@ class SummaryScreen extends ConsumerWidget {
 
               Center(
                 child: Text(
-                  '${l10n?.niceWalk ?? 'Nice walk,'} $name',
+                  name.isEmpty
+                      ? (l10n?.niceWalk ?? 'Nice walk!').replaceAll(',', '!')
+                      : '${l10n?.niceWalk ?? 'Nice walk,'} $name',
                   style: AppType.displaySerif.copyWith(fontSize: 28),
                   textAlign: TextAlign.center,
                 ),
@@ -147,7 +151,7 @@ class SummaryScreen extends ConsumerWidget {
               ),
 
               const SizedBox(height: AppSpacing.md),
-              const _QuoteCard(),
+              _QuoteCard(note: DailyNote.forToday()),
               const SizedBox(height: AppSpacing.lg),
 
               GradientButton(
@@ -211,7 +215,8 @@ class _FlatStatCard extends StatelessWidget {
 }
 
 class _QuoteCard extends StatelessWidget {
-  const _QuoteCard();
+  const _QuoteCard({required this.note});
+  final String note;
 
   @override
   Widget build(BuildContext context) {
@@ -246,8 +251,7 @@ class _QuoteCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                l10n?.summaryQuote ??
-                    'Rhythm is a gentle anchor — you found yours today.',
+                note,
                 style: AppType.displaySerif.copyWith(
                   fontSize: 19,
                   color: Colors.white,

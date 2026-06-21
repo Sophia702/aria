@@ -15,16 +15,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get getStarted => 'Commencer';
 
   @override
-  String get speechAssist => 'Aide vocale';
+  String get speechAssist => 'Assistance vocale';
 
   @override
-  String get speechAssistSub => 'Mode mains libres';
+  String get speechAssistSub => 'Mode vocal sans les mains';
 
   @override
   String get howHelps => 'Comment aria aide';
 
   @override
-  String get sensesWalk => 'Analyse votre marche';
+  String get sensesWalk => 'Sensible à votre marche';
 
   @override
   String get playsABeat => 'Joue un rythme';
@@ -36,7 +36,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get next => 'Suivant';
 
   @override
-  String get aboutYou => 'À votre sujet';
+  String get aboutYou => 'À propos de vous';
 
   @override
   String get continueBtn => 'Continuer';
@@ -57,7 +57,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get connected => 'Connecté';
 
   @override
-  String get pairing => 'Connexion…';
+  String get pairing => 'Appairage…';
 
   @override
   String get notConnected => 'Non connecté';
@@ -66,30 +66,30 @@ class AppLocalizationsFr extends AppLocalizations {
   String get connectAll => 'Tout connecter';
 
   @override
-  String get baselineWalk => 'Marche initiale';
+  String get baselineWalk => 'Marche de référence';
 
   @override
-  String get startWalk => 'Démarrer';
+  String get startWalk => 'Commencer la marche';
 
   @override
   String get goodMorning => 'Bonjour,';
 
   @override
-  String get goodAfternoon => 'Bonjour,';
+  String get goodAfternoon => 'Bon après-midi,';
 
   @override
   String get goodEvening => 'Bonsoir,';
 
   @override
-  String get readyWalk => 'Prête pour une marche consciente ?';
+  String get readyWalk => 'Prêt à faire une marche consciente?';
 
   @override
   String dayStreak(int n) {
-    return '$n jours d\'affilée';
+    return '$n jour de suite';
   }
 
   @override
-  String get allReady => 'Prêts';
+  String get allReady => 'Tout est prêt';
 
   @override
   String get sensors => 'Capteurs';
@@ -101,7 +101,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get todaysNote => 'Note du jour';
 
   @override
-  String get totalSessions => 'Séances totales';
+  String get totalSessions => 'Total des sessions';
 
   @override
   String get thisWeek => 'Cette semaine';
@@ -110,16 +110,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get minutesWalked => 'Minutes marchées';
 
   @override
-  String get recentSessions => 'Séances récentes';
+  String get recentSessions => 'Sessions récentes';
 
   @override
-  String get seeAll => 'Tout voir';
+  String get seeAll => 'Voir tout';
 
   @override
-  String get avgCadence => 'Cadence moy.';
+  String get avgCadence => 'Cadence moyenne';
 
   @override
-  String get totalWalkTime => 'Temps de marche total';
+  String get totalWalkTime => 'Temps total de marche';
 
   @override
   String get walksThisWeek => 'Marches cette semaine';
@@ -131,7 +131,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get stepsPerMin => 'pas / min';
 
   @override
-  String get matchedToPace => 'adapté à votre allure';
+  String get matchedToPace => 'correspond à votre rythme';
 
   @override
   String get inRhythm => 'En rythme';
@@ -140,16 +140,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get steadying => 'Stabilisation';
 
   @override
-  String get endWalk => 'Terminer';
+  String get endWalk => 'Fin de la marche';
 
   @override
   String get helpRespiration => 'Aide & Respiration';
 
   @override
-  String get freezeDetected => 'Blocage détecté';
+  String get freezeDetected => 'Problème détecté';
 
   @override
-  String get hereWithYou => 'Je suis là avec vous';
+  String get hereWithYou => 'Je suis ici avec vous';
 
   @override
   String get breatheFollow =>
@@ -165,41 +165,41 @@ class AppLocalizationsFr extends AppLocalizations {
   String get callEmergencyContact => 'Appeler un contact d\'urgence';
 
   @override
-  String get callEmergencySub => 'Contacter votre proche d\'urgence';
+  String get callEmergencySub => 'Joindre votre contact enregistré';
 
   @override
-  String get imOkayContinue => 'Je vais bien, continuer';
+  String get imOkayContinue => 'Je vais bien, continuez';
 
   @override
   String get niceWalk => 'Belle marche,';
 
   @override
   String get keptRhythm =>
-      'Vous avez gardé un rythme régulier tout au long du chemin.';
+      'Vous avez maintenu un rythme constant tout au long.';
 
   @override
   String get duration => 'Durée';
 
   @override
-  String get avgPace => 'Allure moy.';
+  String get avgPace => 'Vitesse moyenne';
 
   @override
-  String get freezeEased => 'Blocages apaisés';
+  String get freezeEased => 'Gel atténué';
 
   @override
-  String get done => 'Terminé';
+  String get done => 'Fait';
 
   @override
   String get profile => 'Profil';
 
   @override
-  String get saveChanges => 'Enregistrer';
+  String get saveChanges => 'Sauvegarder les modifications';
 
   @override
   String get settings => 'Paramètres';
 
   @override
-  String get cueVolume => 'Volume du signal';
+  String get cueVolume => 'Volume des indications';
 
   @override
   String get beatTempo => 'Tempo du rythme';
@@ -211,7 +211,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get dailyReminders => 'Rappels quotidiens';
 
   @override
-  String get speechAssistHandsFree => 'Aide vocale (mains libres)';
+  String get speechAssistHandsFree => 'Assistance vocale (sans les mains)';
 
   @override
   String get language => 'Langue';
@@ -220,7 +220,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chooseYourBeat => 'Choisissez votre rythme';
 
   @override
-  String get chooseThisBeat => 'Choisir ce rythme';
+  String get chooseThisBeat => 'Choisissez ce rythme';
 
   @override
   String get beatsTab => 'Rythmes';
@@ -229,7 +229,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get songsTab => 'Chansons';
 
   @override
-  String get beatSteady => 'Régulier';
+  String get beatSteady => 'Stable';
 
   @override
   String get beatSteadySub => 'Calme et régulier';
@@ -238,22 +238,22 @@ class AppLocalizationsFr extends AppLocalizations {
   String get beatGentle => 'Doux';
 
   @override
-  String get beatGentleSub => 'Allure de marche douce';
+  String get beatGentleSub => 'Rythme de marche facile';
 
   @override
   String get beatBrisk => 'Vif';
 
   @override
-  String get beatBriskSub => 'Un peu plus vif';
+  String get beatBriskSub => 'Un peu plus rapide';
 
   @override
-  String get beatForest => 'Forêt calme';
+  String get beatForest => 'Calme de la forêt';
 
   @override
-  String get beatForestSub => 'Rythme forestier doux';
+  String get beatForestSub => 'Rythme doux des bois';
 
   @override
-  String get listening => 'En écoute…';
+  String get listening => 'Écoute…';
 
   @override
   String get navHome => 'Accueil';
@@ -265,7 +265,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get navProfile => 'Profil';
 
   @override
-  String get navSettings => 'Réglages';
+  String get navSettings => 'Paramètres';
 
   @override
   String get personalInfo => 'Informations personnelles';
@@ -286,7 +286,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get fieldMeds => 'Médicaments';
 
   @override
-  String get fieldClinician => 'Médecin référent';
+  String get fieldClinician => 'Clinicien assigné';
 
   @override
   String get fieldRelationship => 'Relation';
@@ -307,19 +307,19 @@ class AppLocalizationsFr extends AppLocalizations {
   String get accessibility => 'Accessibilité';
 
   @override
-  String get allSessions => 'Toutes les séances';
+  String get allSessions => 'Toutes les sessions';
 
   @override
-  String get sortLatest => 'Plus récent d\'abord';
+  String get sortLatest => 'Les plus récents d\'abord';
 
   @override
-  String get sortOldest => 'Plus ancien d\'abord';
+  String get sortOldest => 'Les plus anciens d\'abord';
 
   @override
-  String get sortLongest => 'Plus long d\'abord';
+  String get sortLongest => 'Les plus longs d\'abord';
 
   @override
-  String get sortMostSteps => 'Plus de pas';
+  String get sortMostSteps => 'Le plus de pas';
 
   @override
   String get steps => 'Pas';
@@ -336,5 +336,5 @@ class AppLocalizationsFr extends AppLocalizations {
   String get developerSection => '🛠  Développeur';
 
   @override
-  String get restartOnboarding => 'Recommencer l\'intégration';
+  String get restartOnboarding => 'Redémarrer l\'intégration';
 }

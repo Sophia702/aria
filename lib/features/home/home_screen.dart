@@ -47,6 +47,7 @@ class HomeScreen extends ConsumerWidget {
     final sensors = ref.watch(sensorSourceProvider);
     final voiceEnabled = ref.watch(voiceControllerProvider).enabled;
     final name = ref.watch(userNameProvider).asData?.value ?? 'there';
+    final stats = ref.watch(walkStatsProvider);
 
     return Stack(
       children: [
@@ -88,21 +89,30 @@ class HomeScreen extends ConsumerWidget {
                         }
                       },
                       child: Container(
-                        width: 68,
-                        height: 68,
+                        width: 104,
+                        height: 104,
                         decoration: BoxDecoration(
-                          color: AppColors.accent,
+                          color: voiceEnabled
+                              ? AppColors.primary
+                              : AppColors.accent,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.accent.withValues(alpha: 0.28),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
+                              color: (voiceEnabled
+                                      ? AppColors.primary
+                                      : AppColors.accent)
+                                  .withValues(alpha: 0.34),
+                              blurRadius: 20,
+                              offset: const Offset(0, 6),
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.mic_rounded,
-                            color: Colors.white, size: 28),
+                        child: Icon(
+                            voiceEnabled
+                                ? Icons.graphic_eq_rounded
+                                : Icons.mic_rounded,
+                            color: Colors.white,
+                            size: 48),
                       ),
                     ),
                   ),
@@ -152,7 +162,8 @@ class HomeScreen extends ConsumerWidget {
                         color: AppColors.clay, size: 15),
                     const SizedBox(width: 6),
                     Text(
-                      l10n?.dayStreak(6) ?? '6 day streak',
+                      l10n?.dayStreak(stats.currentStreak) ??
+                          '${stats.currentStreak} day streak',
                       style: const TextStyle(
                         color: AppColors.clay,
                         fontWeight: FontWeight.w700,
@@ -166,18 +177,18 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: AppSpacing.lg),
 
-              // ── Last-walk stat strip ──────────────────────────────────
+              // ── Last-walk stat strip (real data) ──────────────────────
               Row(
                 children: [
                   Expanded(child: _MiniStatCard(
                     icon: Icons.directions_walk,
-                    value: '642',
+                    value: '${stats.last?.steps ?? 0}',
                     caption: 'steps',
                   )),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(child: _MiniStatCard(
                     icon: Icons.timer_rounded,
-                    value: '18',
+                    value: '${stats.last?.duration.inMinutes ?? 0}',
                     caption: 'min',
                   )),
                 ],

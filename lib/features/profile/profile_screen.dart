@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,11 +8,12 @@ import '../../core/theme/tokens.dart';
 import '../../data/persistence/app_prefs.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/providers.dart';
+import '../../services/medication/medication_search.dart';
 import '../../widgets/gradient_button.dart';
+import '../../widgets/profile_fields.dart';
 
-/// Screen 09 — Profile. Personal, medical, and emergency-contact info. The
-/// Save button enables only when something changed. (Local only for now;
-/// persistence lands in a later round.)
+/// Screen 09 — Profile. Personal, medical and emergency-contact info, backed by
+/// local storage and shared field widgets so it stays in sync with onboarding.
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -19,74 +22,154 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  // Seed values (load from storage asynchronously).
-  final _initial = <String, String>{
-    'name': '',
-    'age': '',
-    'meds': '',
-    'clinician': '',
-    'contactType': '',
-    'contactName': '',
-    'contactPhone': '',
-  };
+  final _name = TextEditingController();
+  final _clinician = TextEditingController();
+  final _contactName = TextEditingController();
+  final _contactPhone = TextEditingController();
 
-  late final Map<String, TextEditingController> _c = {
-    for (final e in _initial.entries) e.key: TextEditingController(text: e.value)
-  };
+  final _nameFocus = FocusNode();
+  final _clinicianFocus = FocusNode();
+  final _contactNameFocus = FocusNode();
+  final _contactPhoneFocus = FocusNode();
 
+  DateTime? _birthdate;
+  List<String> _meds = [];
+  String? _relationship;
+  String _dialCode = '+1';
   bool _dirty = false;
+  Timer? _typeTimer;
 
   @override
   void initState() {
     super.initState();
-    for (final ctrl in _c.values) {
-      ctrl.addListener(_recomputeDirty);
-    }
-    AppPrefs.getProfile().then((data) {
+    AppPrefs.getProfile().then((d) {
       if (!mounted) return;
       setState(() {
-        for (final e in data.entries) {
-          _initial[e.key] = e.value;
-          _c[e.key]?.text = e.value;
-        }
+        _name.text = d['name'] ?? '';
+        _clinician.text = d['clinician'] ?? '';
+        _contactName.text = d['contactName'] ?? '';
+        _contactPhone.text = d['contactPhone'] ?? '';
+        _birthdate = DateTime.tryParse(d['birthdate'] ?? '');
+        _meds = MedicationSearch.decode(d['meds'] ?? '');
+        _relationship =
+            (d['contactType'] ?? '').isEmpty ? null : d['contactType'];
+        _dialCode = (d['contactPhoneCode'] ?? '+1').isEmpty
+            ? '+1'
+            : d['contactPhoneCode']!;
         _dirty = false;
       });
     });
   }
 
-  void _recomputeDirty() {
-    final dirty = _c.entries.any((e) => e.value.text != _initial[e.key]);
-    if (dirty != _dirty) setState(() => _dirty = dirty);
+  void _markDirty() {
+    if (!_dirty) setState(() => _dirty = true);
   }
 
   Future<void> _save() async {
-    await AppPrefs.saveProfile({for (final e in _c.entries) e.key: e.value.text});
+    await AppPrefs.saveProfile({
+      'name': _name.text.trim(),
+      'birthdate': _birthdate == null ? '' : _isoDate(_birthdate!),
+      'meds': MedicationSearch.encode(_meds),
+      'clinician': _clinician.text.trim(),
+      'contactType': _relationship ?? '',
+      'contactName': _contactName.text.trim(),
+      'contactPhoneCode': _dialCode,
+      'contactPhone': _contactPhone.text.trim(),
+    });
+    // Propagate the name everywhere it's shown (Home, Summary, …).
     ref.invalidate(userNameProvider);
-    for (final e in _c.entries) {
-      _initial[e.key] = e.value.text;
-    }
+    if (!mounted) return;
     setState(() => _dirty = false);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Changes saved')),
-      );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Changes saved')),
+    );
+  }
+
+  static String _isoDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  // ── Voice-driven live editing ───────────────────────────────────────────
+  // aria pushes a [ProfileEdit]; we focus the matching field and type it in so
+  // the user watches the change happen, then save it.
+  void _applyVoiceEdit(ProfileEdit edit) {
+    switch (edit.field) {
+      case 'name':
+        _typeInto(_name, _nameFocus, edit.value);
+      case 'clinician':
+        _typeInto(_clinician, _clinicianFocus, edit.value);
+      case 'contactName':
+        _typeInto(_contactName, _contactNameFocus, edit.value);
+      case 'contactPhone':
+        _typeInto(_contactPhone, _contactPhoneFocus, edit.value);
+      case 'contactType':
+        setState(() {
+          _relationship = edit.value;
+          _dirty = true;
+        });
+        _save();
+      case 'meds':
+        if (!_meds.contains(edit.value)) {
+          setState(() {
+            _meds = [..._meds, edit.value];
+            _dirty = true;
+          });
+          _save();
+        }
     }
+  }
+
+  void _typeInto(TextEditingController c, FocusNode f, String value) {
+    _typeTimer?.cancel();
+    f.requestFocus();
+    c.text = '';
+    var i = 0;
+    _typeTimer = Timer.periodic(const Duration(milliseconds: 55), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      if (i >= value.length) {
+        t.cancel();
+        setState(() => _dirty = true);
+        _save();
+        return;
+      }
+      i++;
+      c.text = value.substring(0, i);
+      c.selection = TextSelection.collapsed(offset: c.text.length);
+      setState(() {});
+    });
   }
 
   @override
   void dispose() {
-    for (final ctrl in _c.values) {
-      ctrl.dispose();
-    }
+    _typeTimer?.cancel();
+    _name.dispose();
+    _clinician.dispose();
+    _contactName.dispose();
+    _contactPhone.dispose();
+    _nameFocus.dispose();
+    _clinicianFocus.dispose();
+    _contactNameFocus.dispose();
+    _contactPhoneFocus.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+
+    // aria asked to change a field — live-type it, then consume the request.
+    ref.listen<ProfileEdit?>(profileEditProvider, (prev, next) {
+      if (next != null) {
+        _applyVoiceEdit(next);
+        ref.read(profileEditProvider.notifier).clear();
+      }
+    });
+
     return ListView(
-      padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md,
-          AppSpacing.lg, AppSpacing.navClearance + MediaQuery.of(context).padding.bottom),
+      padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg,
+          AppSpacing.navClearance + MediaQuery.of(context).padding.bottom),
       children: [
         Text(l10n?.profile ?? 'Profile', style: AppType.h1),
         const SizedBox(height: AppSpacing.md),
@@ -94,12 +177,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           title: l10n?.personalInfo ?? 'Personal information',
           icon: Icons.person_rounded,
           children: [
-            _Field(
-                label: l10n?.fieldName ?? 'Name', controller: _c['name']!),
-            _Field(
-                label: l10n?.fieldAge ?? 'Age',
-                controller: _c['age']!,
-                number: true),
+            LabeledTextField(
+              label: l10n?.fieldName ?? 'Name',
+              controller: _name,
+              focusNode: _nameFocus,
+              onChanged: (_) => _markDirty(),
+            ),
+            BirthdateField(
+              date: _birthdate,
+              onChanged: (d) => setState(() {
+                _birthdate = d;
+                _dirty = true;
+              }),
+            ),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
@@ -107,12 +197,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           title: l10n?.medicalInfo ?? 'Medical information',
           icon: Icons.local_hospital_rounded,
           children: [
-            _Field(
-                label: l10n?.fieldMeds ?? 'Medications',
-                controller: _c['meds']!),
-            _Field(
-                label: l10n?.fieldClinician ?? 'Assigned clinician',
-                controller: _c['clinician']!),
+            MedicationField(
+              meds: _meds,
+              onChanged: (m) => setState(() {
+                _meds = m;
+                _dirty = true;
+              }),
+            ),
+            LabeledTextField(
+              label: l10n?.fieldClinician ?? 'Assigned clinician',
+              controller: _clinician,
+              focusNode: _clinicianFocus,
+              onChanged: (_) => _markDirty(),
+            ),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
@@ -120,16 +217,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           title: l10n?.emergencyContact ?? 'Emergency contact',
           icon: Icons.phone_android_rounded,
           children: [
-            _Field(
-                label: l10n?.fieldRelationship ?? 'Relationship',
-                controller: _c['contactType']!),
-            _Field(
-                label: l10n?.fieldName ?? 'Name',
-                controller: _c['contactName']!),
-            _Field(
-                label: l10n?.fieldPhone ?? 'Phone',
-                controller: _c['contactPhone']!,
-                number: true),
+            RelationshipDropdown(
+              value: _relationship,
+              onChanged: (v) => setState(() {
+                _relationship = v;
+                _dirty = true;
+              }),
+            ),
+            LabeledTextField(
+              label: l10n?.fieldName ?? 'Name',
+              controller: _contactName,
+              focusNode: _contactNameFocus,
+              onChanged: (_) => _markDirty(),
+            ),
+            PhoneField(
+              dialCode: _dialCode,
+              controller: _contactPhone,
+              numberFocusNode: _contactPhoneFocus,
+              onCodeChanged: (v) => setState(() {
+                _dialCode = v ?? '+1';
+                _dirty = true;
+              }),
+              onNumberChanged: (_) => _markDirty(),
+            ),
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -145,8 +255,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 }
 
 class _Section extends StatelessWidget {
-  const _Section(
-      {required this.title, required this.children, this.icon});
+  const _Section({required this.title, required this.children, this.icon});
   final String title;
   final List<Widget> children;
   final IconData? icon;
@@ -169,54 +278,6 @@ class _Section extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _Field extends StatelessWidget {
-  const _Field(
-      {required this.label, required this.controller, this.number = false});
-  final String label;
-  final TextEditingController controller;
-  final bool number;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: AppType.label.copyWith(color: AppColors.inkSoft)),
-          const SizedBox(height: 4),
-          TextField(
-            controller: controller,
-            keyboardType: number ? TextInputType.text : TextInputType.text,
-            style: AppType.h2.copyWith(fontSize: 18),
-            decoration: InputDecoration(
-              isDense: true,
-              filled: true,
-              fillColor: AppColors.field,
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(11),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(11),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(11),
-                borderSide:
-                    const BorderSide(color: AppColors.primary, width: 1.5),
-              ),
-            ),
-          ),
         ],
       ),
     );

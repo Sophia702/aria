@@ -5,11 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/sensor_schema.dart';
 import '../../data/models/fog_prediction.dart';
 import '../../data/models/imu_sample.dart';
+import '../../data/models/walk_session.dart';
+import '../../data/persistence/app_prefs.dart';
 import '../../providers/providers.dart';
+import '../cadence/cadence_service.dart';
 import '../cue/cue_engine.dart';
 import '../intervention/intervention_manager.dart';
 import '../model/fog_model.dart';
+import '../sensors/arduino_ble_service.dart';
 import '../sensors/sensor_source.dart';
+import '../watch/watch_cadence_service.dart';
 import 'ring_buffer.dart';
 import 'session_state.dart';
 
@@ -32,6 +37,11 @@ class SessionController extends Notifier<SessionSnapshot> {
   StreamSubscription? _sampleSub;
   StreamSubscription? _interventionSub;
 
+  // Live cadence sources (real steps/min) feeding the walking screen.
+  StreamSubscription<double?>? _watchCadenceSub;
+  StreamSubscription<double>? _imuCadenceSub;
+  CadenceService? _imuCadence;
+
   int _sinceStep = 0;
   int _lastTickMs = 0;
 
@@ -46,9 +56,46 @@ class SessionController extends Notifier<SessionSnapshot> {
     ref.onDispose(() {
       _sampleSub?.cancel();
       _interventionSub?.cancel();
+      _stopLiveCadence();
     });
 
     return const SessionSnapshot();
+  }
+
+  // ── Live cadence ──────────────────────────────────────────────────────────
+  // Show REAL steps/min during a walk, preferring the Arduino IMU (if the board
+  // is connected) and otherwise the Apple Watch step cadence. Falls back to the
+  // cue tempo when no real source is available.
+  void _startLiveCadence() {
+    final ble = ref.read(arduinoBleProvider);
+    if (ble.state == ArduinoBleState.connected) {
+      final cadence = CadenceService(ble);
+      _imuCadence = cadence;
+      cadence.start();
+      _imuCadenceSub = cadence.onCadence.listen((spm) {
+        if (spm > 0) _applyLiveCadence(spm);
+      });
+    }
+    // Apple Watch cadence (iOS). Yields null when unavailable — harmless.
+    _watchCadenceSub = WatchCadenceService.liveStream().listen((spm) {
+      if (spm != null && spm > 0) _applyLiveCadence(spm);
+    });
+  }
+
+  void _applyLiveCadence(double spm) {
+    if (state.state == SessionState.walkingNormal ||
+        state.state == SessionState.intervention) {
+      state = state.copyWith(stepsPerMin: spm);
+    }
+  }
+
+  void _stopLiveCadence() {
+    _watchCadenceSub?.cancel();
+    _watchCadenceSub = null;
+    _imuCadenceSub?.cancel();
+    _imuCadenceSub = null;
+    _imuCadence?.dispose();
+    _imuCadence = null;
   }
 
   /// Begin a walking session. [bpm] is the baseline cadence from calibration
@@ -67,6 +114,7 @@ class SessionController extends Notifier<SessionSnapshot> {
 
     await cue.init();
     await cue.startCue(bpm: bpm);
+    await cue.setVolume(await AppPrefs.cueVolume() / 100.0);
     await sensors.start();
     _sampleSub = sensors.samples.listen(_onSample);
 
@@ -80,6 +128,8 @@ class SessionController extends Notifier<SessionSnapshot> {
       freezesEased: 0,
       cuePlaying: true,
     );
+
+    _startLiveCadence();
   }
 
   void _onSample(ImuSample sample) {
@@ -140,8 +190,23 @@ class SessionController extends Notifier<SessionSnapshot> {
   Future<void> endSession() async {
     await _sampleSub?.cancel();
     _sampleSub = null;
+    _stopLiveCadence();
     await sensors.stop();
     await cue.stopCue();
+
+    // Persist the completed walk so Home / Progress / Summary show real data.
+    if (state.elapsed.inSeconds >= 5) {
+      final minutes = state.elapsed.inSeconds / 60.0;
+      await ref.read(sessionHistoryProvider.notifier).record(WalkSession(
+            startedAtMs: DateTime.now().millisecondsSinceEpoch -
+                state.elapsed.inMilliseconds,
+            durationSeconds: state.elapsed.inSeconds,
+            steps: (state.stepsPerMin * minutes).round(),
+            avgCadence: state.stepsPerMin,
+            freezesEased: state.freezesEased,
+          ));
+    }
+
     state = state.copyWith(state: SessionState.ended, cuePlaying: false);
   }
 

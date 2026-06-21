@@ -12,34 +12,18 @@ import '../data/models/sensor_status.dart';
 /// NOTE: this is a 2D silhouette with a 3D-style turn. A true textured rotating
 /// 3D model would use a `.glb` asset via `model_viewer_plus` / `flutter_3d_controller`;
 /// drop a humanoid model in assets and swap the painter for that when available.
-class BodyView extends StatefulWidget {
+class BodyView extends StatelessWidget {
   const BodyView({super.key, required this.status, required this.onTap});
 
   final SensorStatusMap status;
   final ValueChanged<SensorLocation> onTap;
 
-  @override
-  State<BodyView> createState() => _BodyViewState();
-}
-
-class _BodyViewState extends State<BodyView> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 4200),
-  )..repeat(reverse: true);
-
   // Sensor placements over the figure (fractional -> Alignment).
   static const _spots = {
-    SensorLocation.lowerBack: Alignment(0.0, -0.06),
-    SensorLocation.ankleLeft: Alignment(-0.22, 0.74),
-    SensorLocation.ankleRight: Alignment(0.22, 0.74),
+    SensorLocation.lowerBack: Alignment(0.0, 0.02),
+    SensorLocation.ankleLeft: Alignment(-0.13, 0.72),
+    SensorLocation.ankleRight: Alignment(0.13, 0.72),
   };
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,120 +32,36 @@ class _BodyViewState extends State<BodyView> with SingleTickerProviderStateMixin
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // The turning silhouette.
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _c,
-              builder: (context, child) {
-                final angle = (_c.value - 0.5) * 0.7; // ~ -0.35..0.35 rad sway
-                final m = Matrix4.identity()
-                  ..setEntry(3, 2, 0.0012) // perspective
-                  ..rotateY(angle);
-                return Transform(
-                  alignment: Alignment.center,
-                  transform: m,
-                  child: child,
-                );
-              },
-              child: CustomPaint(painter: _BodyPainter()),
+          // Clean full-body figure on a soft rounded card.
+          Center(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppRadii.xl),
+                border: Border.all(color: AppColors.line),
+              ),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 28, vertical: 20),
+              child: Image.asset(
+                'assets/images/aria_body.png',
+                fit: BoxFit.contain,
+              ),
             ),
           ),
-          // Sensor markers (kept flat so labels stay readable).
+          // Sensor markers.
           for (final loc in SensorLocation.values)
             Align(
               alignment: _spots[loc]!,
               child: _SensorDot(
                 location: loc,
-                state: widget.status.of(loc),
-                onTap: () => widget.onTap(loc),
+                state: status.of(loc),
+                onTap: () => onTap(loc),
               ),
             ),
         ],
       ),
     );
   }
-}
-
-class _BodyPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final cx = w / 2;
-    final paint = Paint()
-      ..color = const Color(0xFF2E3440)
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-
-    // Head
-    canvas.drawCircle(Offset(cx, h * 0.09), w * 0.11, paint);
-
-    // Torso — wider, rounder
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTRB(cx - w * 0.20, h * 0.18, cx + w * 0.20, h * 0.55),
-        Radius.circular(w * 0.14),
-      ),
-      paint,
-    );
-
-    // Left arm
-    final leftArm = Path()
-      ..moveTo(cx - w * 0.18, h * 0.20)
-      ..quadraticBezierTo(cx - w * 0.40, h * 0.28, cx - w * 0.36, h * 0.50)
-      ..lineTo(cx - w * 0.28, h * 0.50)
-      ..quadraticBezierTo(cx - w * 0.30, h * 0.30, cx - w * 0.12, h * 0.22)
-      ..close();
-    canvas.drawPath(leftArm, paint);
-
-    // Right arm
-    final rightArm = Path()
-      ..moveTo(cx + w * 0.18, h * 0.20)
-      ..quadraticBezierTo(cx + w * 0.40, h * 0.28, cx + w * 0.36, h * 0.50)
-      ..lineTo(cx + w * 0.28, h * 0.50)
-      ..quadraticBezierTo(cx + w * 0.30, h * 0.30, cx + w * 0.12, h * 0.22)
-      ..close();
-    canvas.drawPath(rightArm, paint);
-
-    // Left leg
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTRB(cx - w * 0.18, h * 0.52, cx - w * 0.04, h * 0.88),
-        Radius.circular(w * 0.07),
-      ),
-      paint,
-    );
-
-    // Right leg
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTRB(cx + w * 0.04, h * 0.52, cx + w * 0.18, h * 0.88),
-        Radius.circular(w * 0.07),
-      ),
-      paint,
-    );
-
-    // Left foot
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTRB(cx - w * 0.20, h * 0.85, cx - w * 0.03, h * 0.93),
-        Radius.circular(w * 0.04),
-      ),
-      paint,
-    );
-
-    // Right foot
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTRB(cx + w * 0.03, h * 0.85, cx + w * 0.20, h * 0.93),
-        Radius.circular(w * 0.04),
-      ),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _BodyPainter oldDelegate) => false;
 }
 
 class _SensorDot extends StatelessWidget {

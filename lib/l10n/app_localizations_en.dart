@@ -146,7 +146,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get helpRespiration => 'Help & Respiration';
 
   @override
-  String get freezeDetected => 'Freeze detected';
+  String get freezeDetected => 'Trouble detected';
 
   @override
   String get hereWithYou => 'I\'m right here with you';

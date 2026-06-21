@@ -1,41 +1,42 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/daily_note.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/models/walk_session.dart';
+import '../../data/models/walk_stats.dart';
 import '../../l10n/app_localizations.dart';
+import '../../providers/providers.dart';
 import '../../widgets/stat_card.dart';
 import 'all_sessions_screen.dart';
 
 class ProgressScreen extends ConsumerWidget {
   const ProgressScreen({super.key});
 
-  static const _week = [12, 0, 18, 8, 22, 15, 10];
   static const _days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  static const _cadence = [102, 0, 108, 99, 110, 107, 95];
-  static const _steps = [520, 0, 740, 405, 895, 642, 450];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+    final stats = ref.watch(walkStatsProvider);
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md,
           AppSpacing.lg, AppSpacing.navClearance),
       children: [
         Text(l10n?.progress ?? 'Progress', style: AppType.h1),
         const SizedBox(height: AppSpacing.md),
-        _QuoteCard(
-          quote: AppLocalizations.of(context)?.progressQuote ??
-              'Every step you take is a small act of courage.',
-        ),
+        _QuoteCard(quote: DailyNote.forToday()),
         const SizedBox(height: AppSpacing.md),
         Row(
           children: [
             Expanded(
               child: StatCard(
                 icon: Icons.directions_walk,
-                value: '12',
+                value: '${stats.totalSessions}',
                 caption: l10n?.totalSessions ?? 'Total sessions',
                 accent: AppColors.primary,
                 showStrip: false,
@@ -45,7 +46,7 @@ class ProgressScreen extends ConsumerWidget {
             Expanded(
               child: StatCard(
                 icon: Icons.local_fire_department,
-                value: '5',
+                value: '${stats.walksThisWeek}',
                 caption: l10n?.thisWeek ?? 'This week',
                 accent: AppColors.primary,
                 showStrip: false,
@@ -55,25 +56,61 @@ class ProgressScreen extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         _ChartAndSummaryCard(
-            week: _week, days: _days, cadence: _cadence, steps: _steps),
+          week: stats.weekMinutes,
+          days: _days,
+          cadence: stats.weekCadence,
+          steps: stats.weekSteps,
+          avgCadence: stats.avgCadence,
+          totalTimeLabel: WalkStats.formatDuration(stats.totalWalkTime),
+          walksThisWeek: stats.walksThisWeek,
+        ),
         const SizedBox(height: AppSpacing.lg),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(l10n?.recentSessions ?? 'Recent sessions', style: AppType.h2),
-            GestureDetector(
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const AllSessionsScreen())),
-              child: Text(l10n?.seeAll ?? 'See all',
-                  style: AppType.label.copyWith(color: AppColors.primary)),
-            ),
+            if (stats.recent.isNotEmpty)
+              GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AllSessionsScreen())),
+                child: Text(l10n?.seeAll ?? 'See all',
+                    style: AppType.label.copyWith(color: AppColors.primary)),
+              ),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        const _SessionTile(date: 'Today · 9:12', steps: 642, mins: 6),
-        const _SessionTile(date: 'Yesterday · 5:40', steps: 1180, mins: 11),
-        const _SessionTile(date: 'Mon · 8:30', steps: 980, mins: 9),
+        if (stats.recent.isEmpty)
+          const _EmptyRecent()
+        else
+          for (final s in stats.recent) _SessionTile(session: s),
       ],
+    );
+  }
+}
+
+/// Friendly empty state before any walk has been recorded.
+class _EmptyRecent extends StatelessWidget {
+  const _EmptyRecent();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: AppTheme.cardDecoration(radius: 18),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.lg),
+      child: Column(
+        children: [
+          const Icon(Icons.directions_walk_rounded,
+              color: AppColors.inkFaint, size: 30),
+          const SizedBox(height: AppSpacing.sm),
+          Text('No walks yet',
+              style: AppType.h2.copyWith(fontSize: 16)),
+          const SizedBox(height: 4),
+          Text('Your sessions will appear here once you start walking.',
+              style: AppType.label, textAlign: TextAlign.center),
+        ],
+      ),
     );
   }
 }
@@ -139,11 +176,17 @@ class _ChartAndSummaryCard extends StatefulWidget {
     required this.days,
     required this.cadence,
     required this.steps,
+    required this.avgCadence,
+    required this.totalTimeLabel,
+    required this.walksThisWeek,
   });
   final List<int> week;
   final List<String> days;
   final List<int> cadence;
   final List<int> steps;
+  final double avgCadence;
+  final String totalTimeLabel;
+  final int walksThisWeek;
 
   @override
   State<_ChartAndSummaryCard> createState() => _ChartAndSummaryCardState();
@@ -155,10 +198,11 @@ class _ChartAndSummaryCardState extends State<_ChartAndSummaryCard> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final maxY =
-        (widget.week.reduce((a, b) => a > b ? a : b) + 6).toDouble();
+    final weekMax = widget.week.isEmpty
+        ? 0
+        : widget.week.reduce((a, b) => a > b ? a : b);
+    final maxY = (weekMax + 6).toDouble();
 
-    // Determine summary row values
     final String cadenceVal;
     final String durationVal;
     final String stepsVal;
@@ -170,9 +214,11 @@ class _ChartAndSummaryCardState extends State<_ChartAndSummaryCard> {
       cadenceLabel = l10n?.avgCadence ?? 'Avg cadence';
       durationLabel = l10n?.totalWalkTime ?? 'Total walking time';
       stepsLabel = l10n?.walksThisWeek ?? 'Walks this week';
-      cadenceVal = '108 steps/min';
-      durationVal = '1h 25m';
-      stepsVal = '6';
+      cadenceVal = widget.avgCadence > 0
+          ? '${widget.avgCadence.round()} steps/min'
+          : '--';
+      durationVal = widget.totalTimeLabel;
+      stepsVal = '${widget.walksThisWeek}';
     } else if (widget.week[_selectedDay!] > 0) {
       cadenceLabel = l10n?.avgCadence ?? 'Cadence';
       durationLabel = l10n?.duration ?? 'Duration';
@@ -198,7 +244,6 @@ class _ChartAndSummaryCardState extends State<_ChartAndSummaryCard> {
                 AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
             child: Column(
               children: [
-                // Header row
                 Row(
                   children: [
                     Column(
@@ -212,30 +257,6 @@ class _ChartAndSummaryCardState extends State<_ChartAndSummaryCard> {
                       ],
                     ),
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: AppColors.okSoft,
-                        borderRadius: BorderRadius.circular(AppRadii.pill),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.trending_up,
-                              color: AppColors.connected, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            '+12%',
-                            style: AppType.label.copyWith(
-                              color: AppColors.connected,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -369,14 +390,26 @@ class _SummaryRow extends StatelessWidget {
 }
 
 class _SessionTile extends StatelessWidget {
-  const _SessionTile(
-      {required this.date, required this.steps, required this.mins});
-  final String date;
-  final int steps;
-  final int mins;
+  const _SessionTile({required this.session});
+  final WalkSession session;
+
+  /// "Today · 9:12", "Yesterday · 5:40", "Mon · 8:30".
+  static String label(WalkSession s) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final d = s.startedAt;
+    final day = DateTime(d.year, d.month, d.day);
+    final diff = today.difference(day).inDays;
+    final time = DateFormat('h:mm').format(d);
+    if (diff == 0) return 'Today · $time';
+    if (diff == 1) return 'Yesterday · $time';
+    if (diff < 7) return '${DateFormat('EEE').format(d)} · $time';
+    return '${DateFormat('MMM d').format(d)} · $time';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final mins = session.duration.inMinutes;
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       decoration: AppTheme.cardDecoration(radius: 18),
@@ -399,8 +432,9 @@ class _SessionTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(date, style: AppType.h2.copyWith(fontSize: 16)),
-                  Text('$steps steps · ${mins}m', style: AppType.label),
+                  Text(label(session), style: AppType.h2.copyWith(fontSize: 16)),
+                  Text('${session.steps} steps · ${mins}m',
+                      style: AppType.label),
                 ],
               ),
             ),

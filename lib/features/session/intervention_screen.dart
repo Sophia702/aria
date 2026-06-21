@@ -5,11 +5,13 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/a11y/a11y.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/persistence/app_prefs.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/providers.dart';
 import '../../services/intervention/intervention_manager.dart';
 import '../../widgets/breath_glyph.dart';
 import '../../widgets/gradient_button.dart';
+import 'breathing_exercise_screen.dart';
 
 /// Freeze intervention screen. Light background, no emojis.
 /// Ambient breathing animation guides the user while they decide.
@@ -32,12 +34,51 @@ class InterventionScreen extends ConsumerWidget {
     if (context.mounted) Navigator.of(context).pop();
   }
 
+  /// Open the full-screen breathing exercise; if the user says they feel
+  /// better, resolve the intervention and return to the walk.
+  Future<void> _openBreathing(BuildContext context, WidgetRef ref) async {
+    final better = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const BreathingExerciseScreen(),
+        fullscreenDialog: true,
+      ),
+    );
+    if (better == true && context.mounted) {
+      await _choose(context, ref, InterventionAction.breathing);
+    }
+  }
+
+  /// Dial the emergency contact saved in the profile (never a hardcoded number).
+  Future<void> _callEmergency(BuildContext context, WidgetRef ref) async {
+    final p = await AppPrefs.getProfile();
+    final code = (p['contactPhoneCode'] ?? '').trim();
+    final raw = (p['contactPhone'] ?? '').trim();
+    final digits = raw.replaceAll(RegExp(r'[^0-9+]'), '');
+    final dial = digits.isEmpty
+        ? ''
+        : (digits.startsWith('+') ? digits : '$code$digits');
+    if (dial.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'No emergency contact saved. Add one in your profile.'),
+        ));
+      }
+      return;
+    }
+    if (context.mounted) {
+      await _choose(context, ref, InterventionAction.callEmergencyContact,
+          dial: dial);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      body: AppTheme.pageBackground(
-        child: SafeArea(
+      // Flat background (no gradient band at the bottom of the screen).
+      backgroundColor: AppColors.bgTop,
+      body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
@@ -101,8 +142,7 @@ class InterventionScreen extends ConsumerWidget {
                   subtitle: l10n?.breathingSub ?? 'Slow, guided breaths',
                   accentFg: AppColors.primary,
                   accentBg: AppColors.primarySoft,
-                  onTap: () =>
-                      _choose(context, ref, InterventionAction.breathing),
+                  onTap: () => _openBreathing(context, ref),
                 ),
                 const SizedBox(height: A11y.minTargetSpacing),
 
@@ -115,9 +155,7 @@ class InterventionScreen extends ConsumerWidget {
                   subtitle: l10n?.callEmergencySub ?? 'Reach your saved contact',
                   accentFg: AppColors.accent,
                   accentBg: AppColors.accentSoft,
-                  onTap: () => _choose(
-                      context, ref, InterventionAction.callEmergencyContact,
-                      dial: '911'),
+                  onTap: () => _callEmergency(context, ref),
                 ),
                 const SizedBox(height: AppSpacing.md),
 
@@ -132,7 +170,6 @@ class InterventionScreen extends ConsumerWidget {
             ),
           ),
         ),
-      ),
     );
   }
 }

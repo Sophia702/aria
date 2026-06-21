@@ -163,3 +163,31 @@ import UIKit
     result(true)
   }
 }
+
+// MARK: – HealthKit authorization helper
+//
+// Thin wrapper around HKHealthStore.requestAuthorization so the channel handlers
+// above stay readable. Read-only — aria never writes Health data.
+enum HealthKitWrapper {
+  static func requestAuth(
+    store: HKHealthStore,
+    readTypes: Set<HKObjectType>,
+    completion: @escaping (Bool) -> Void
+  ) {
+    store.requestAuthorization(toShare: nil, read: readTypes) { success, error in
+      if let error = error {
+        NSLog("[aria] HealthKit auth error: %@", error.localizedDescription)
+      }
+      DispatchQueue.main.async { completion(success) }
+    }
+  }
+
+  /// Array overload — call sites pass `[hrType]` / `[stepType]`.
+  static func requestAuth(
+    store: HKHealthStore,
+    readTypes: [HKObjectType],
+    completion: @escaping (Bool) -> Void
+  ) {
+    requestAuth(store: store, readTypes: Set(readTypes), completion: completion)
+  }
+}

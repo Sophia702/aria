@@ -83,6 +83,7 @@ flutter:
 
   assets:
     - assets/images/aria_logo.png
+    - assets/images/aria_body.png
     - assets/models/
     - assets/sounds/
 

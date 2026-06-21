@@ -371,7 +371,7 @@ abstract class AppLocalizations {
   /// No description provided for @freezeDetected.
   ///
   /// In en, this message translates to:
-  /// **'Freeze detected'**
+  /// **'Trouble detected'**
   String get freezeDetected;
 
   /// No description provided for @hereWithYou.
