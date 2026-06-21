@@ -29,6 +29,10 @@ class ArduinoBleService {
   static const _serviceUuid = '19b10000-e8f2-537e-4f6c-d104768a1214';
   static const _imuCharUuid = '19b10001-e8f2-537e-4f6c-d104768a1214';
 
+  /// Public alias so other services (e.g. ArduinoBackSensorSource) can filter
+  /// scan results without duplicating the literal UUID.
+  static const String serviceUuid = _serviceUuid;
+
   ArduinoBleState _state = ArduinoBleState.disconnected;
   ArduinoBleState get state => _state;
 

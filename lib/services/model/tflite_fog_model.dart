@@ -34,6 +34,9 @@ class TfliteFogModel implements FogModel {
   @override
   int get featureCount => kFeatureCount;
 
+  @override
+  int get stepSize => kStepSize;
+
   /// Call this with stats from [computeNormParams] after the baseline walk.
   void setNormParams(Float32List mean, Float32List std) {
     assert(mean.length == kFeatureCount && std.length == kFeatureCount);

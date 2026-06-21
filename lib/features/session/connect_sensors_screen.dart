@@ -30,7 +30,7 @@ class ConnectSensorsScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                    'Place a sensor on your lower back and each ankle, then tap to pair.',
+                    'Place the sensor on your lower back, then tap to pair.',
                     style: AppType.body),
                 const SizedBox(height: AppSpacing.md),
                 Expanded(
