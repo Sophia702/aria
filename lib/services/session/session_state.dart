@@ -1,5 +1,12 @@
 import '../../data/models/fog_prediction.dart';
 
+/// Chosen before a walk starts (see ChooseModeScreen).
+///   - [cadenceOnly]: just cadence tracking + beat sync — the FoG model never
+///     loads or runs, so no model-driven status/intervention.
+///   - [fogPrediction]: cadence tracking AND the back-sensor FoG model,
+///     surfacing freeze predictions via the status pill and ring colour.
+enum WalkMode { cadenceOnly, fogPrediction }
+
 /// High-level session phase that drives screen routing.
 ///
 /// M1 actively uses: idle, walkingNormal, intervention, ended.
@@ -21,6 +28,7 @@ enum SessionState {
 /// Immutable snapshot the UI renders from. The UI reacts to THIS, never to raw
 /// sensor data.
 class SessionSnapshot {
+  final WalkMode mode;
   final SessionState state;
   final FogState fogState; // colours the walking PulseRing
   final double fogProbability;
@@ -31,6 +39,7 @@ class SessionSnapshot {
   final bool cuePlaying;
 
   const SessionSnapshot({
+    this.mode = WalkMode.fogPrediction,
     this.state = SessionState.idle,
     this.fogState = FogState.normal,
     this.fogProbability = 0,
@@ -42,6 +51,7 @@ class SessionSnapshot {
   });
 
   SessionSnapshot copyWith({
+    WalkMode? mode,
     SessionState? state,
     FogState? fogState,
     double? fogProbability,
@@ -52,6 +62,7 @@ class SessionSnapshot {
     bool? cuePlaying,
   }) {
     return SessionSnapshot(
+      mode: mode ?? this.mode,
       state: state ?? this.state,
       fogState: fogState ?? this.fogState,
       fogProbability: fogProbability ?? this.fogProbability,

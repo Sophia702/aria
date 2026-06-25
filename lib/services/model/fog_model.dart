@@ -23,9 +23,11 @@ abstract class FogModel {
   /// Load weights / warm up. Call once before [predict].
   Future<void> load();
 
-  /// Run inference over one flattened window. Synchronous so the session loop
-  /// can call it on each step; heavy backends may cache an isolate internally.
-  FogPrediction predict(Float32List window);
+  /// Run inference over one flattened window. Async so a heavy backend can
+  /// run on a background isolate without blocking the sample-ingestion loop
+  /// (real-time sensor processing, e.g. cadence step detection, shares the
+  /// main isolate and must not stall while inference runs).
+  Future<FogPrediction> predict(Float32List window);
 
   /// Release native resources.
   Future<void> dispose();

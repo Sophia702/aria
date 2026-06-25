@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AppPrefs {
   AppPrefs._();
   static const _kOnboarded = 'onboarded';
+  static const _kConsented = 'consented';
 
   static Future<bool> isOnboarded() async {
     final p = await SharedPreferences.getInstance();
@@ -14,6 +15,16 @@ class AppPrefs {
   static Future<void> setOnboarded() async {
     final p = await SharedPreferences.getInstance();
     await p.setBool(_kOnboarded, true);
+  }
+
+  static Future<bool> hasConsented() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool(_kConsented) ?? false;
+  }
+
+  static Future<void> setConsented() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_kConsented, true);
   }
 
   static const _kVoice = 'voiceEnabled';

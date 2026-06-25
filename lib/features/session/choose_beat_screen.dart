@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,13 +10,15 @@ import '../../data/beats.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/providers.dart';
 import '../../services/cue/metronome_cue_engine.dart';
+import '../../services/session/session_state.dart';
 import '../../widgets/equalizer_bars.dart';
 import '../../widgets/gradient_button.dart';
 import 'walking_screen.dart';
 import 'package:just_audio/just_audio.dart';
 
 class ChooseBeatScreen extends ConsumerStatefulWidget {
-  const ChooseBeatScreen({super.key});
+  const ChooseBeatScreen({super.key, required this.mode});
+  final WalkMode mode;
 
   @override
   ConsumerState<ChooseBeatScreen> createState() => _ChooseBeatScreenState();
@@ -53,10 +57,15 @@ class _ChooseBeatScreenState extends ConsumerState<ChooseBeatScreen> {
     await _previewPlayer.stop();
     await _previewCue.stopCue();
     final beat = _beats[_beatSelected];
-    await ref.read(sessionControllerProvider.notifier).startSession(
+    // Connecting the sensor / loading the model can take several seconds —
+    // don't block the screen transition on it. Kick it off and navigate
+    // immediately; WalkingScreen shows a "connecting" state until the
+    // session controller's snapshot reflects the real calibrating phase.
+    unawaited(ref.read(sessionControllerProvider.notifier).startSession(
+          mode: widget.mode,
           bpm: beat.bpm.toDouble(),
           sound: beat.sound,
-        );
+        ));
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => WalkingScreen(beat: beat)),

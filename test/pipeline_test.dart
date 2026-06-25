@@ -31,13 +31,13 @@ void main() {
     expect(snap[(kWindowSize - 1) * kFeatureCount], kWindowSize - 1);
   });
 
-  test('MockFogModel cycles normal -> preFreeze -> freezing', () {
+  test('MockFogModel cycles normal -> preFreeze -> freezing', () async {
     final model = MockFogModel();
     final window = Float32List(kWindowSize * kFeatureCount);
     final seen = <FogState>{};
     // Iterate more than one full demo cycle so all phases are observed.
     for (var i = 0; i < 30; i++) {
-      seen.add(model.predict(window).state);
+      seen.add((await model.predict(window)).state);
     }
     expect(seen, containsAll([FogState.normal, FogState.preFreeze, FogState.freezing]));
   });

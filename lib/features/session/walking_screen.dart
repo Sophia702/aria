@@ -194,6 +194,10 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
     final ringColor = _ringColor(s.fogState);
     final pill = _pillStyle(s.fogState);
     final calibrating = s.state == SessionState.calibrating;
+    // startSession() runs in the background after an immediate navigation
+    // (BLE connect / model load can take seconds) — show a connecting state
+    // for that brief idle gap instead of "0 steps/min".
+    final connecting = s.state == SessionState.idle;
     final calibrationSecondsLeft = (5 - s.elapsed.inSeconds).clamp(0, 5);
 
     return Scaffold(
@@ -237,31 +241,33 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
                     ),
                     const Spacer(),
                     const SizedBox(height: 6),
-                    // Status pill
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: pill.bg,
-                        borderRadius: BorderRadius.circular(AppRadii.pill),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(pill.icon, color: pill.fg, size: 14),
-                          const SizedBox(width: 5),
-                          Text(
-                            _stateLabel(s.fogState, l10n),
-                            style: TextStyle(
-                              fontFamily: kFontFamily,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: pill.fg,
+                    // Status pill — only meaningful when the FoG model is
+                    // actually running; cadence-only mode has nothing to report.
+                    if (s.mode == WalkMode.fogPrediction)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: pill.bg,
+                          borderRadius: BorderRadius.circular(AppRadii.pill),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(pill.icon, color: pill.fg, size: 14),
+                            const SizedBox(width: 5),
+                            Text(
+                              _stateLabel(s.fogState, l10n),
+                              style: TextStyle(
+                                fontFamily: kFontFamily,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: pill.fg,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
 
@@ -272,7 +278,30 @@ class _WalkingScreenState extends ConsumerState<WalkingScreen> {
                   color: ringColor,
                   size: 230,
                   active: s.cuePlaying,
-                  child: calibrating
+                  child: connecting
+                      ? const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 3,
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Connecting…',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: kFontFamily),
+                            ),
+                          ],
+                        )
+                      : calibrating
                       ? Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [

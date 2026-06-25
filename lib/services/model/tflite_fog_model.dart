@@ -50,7 +50,7 @@ class TfliteFogModel implements FogModel {
   }
 
   @override
-  FogPrediction predict(Float32List window) {
+  Future<FogPrediction> predict(Float32List window) async {
     assert(
       window.length == windowSize * featureCount,
       'window must be ${windowSize * featureCount} floats',

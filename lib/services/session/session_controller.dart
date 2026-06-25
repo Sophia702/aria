@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -48,7 +49,7 @@ class SessionController extends Notifier<SessionSnapshot> {
   // so the cue stays silent (volume 0) but keeps running for ring/state sync.
   BeatSound? _activeSound;
   double _lastAppliedBpm = 0;
-  static const double _retempoThresholdSpm = 4.0;
+  static const double _retempoThresholdSpm = 2.0;
 
   int _sinceStep = 0;
   Timer? _ticker;
@@ -134,16 +135,32 @@ class SessionController extends Notifier<SessionSnapshot> {
     state = state.copyWith(bpm: spm);
   }
 
-  /// Calibration ends: lock in the measured cadence immediately rather than
-  /// waiting for the next ≥4 SPM threshold crossing.
-  void _endCalibration() {
+  /// Calibration ends. For a click beat, this is when the cue actually starts
+  /// playing — at the just-measured real cadence, never the 100 BPM
+  /// placeholder it was constructed with (a click has no authored tempo; it
+  /// only means anything once we know the real pace). A music beat is
+  /// already playing at its real, authored tempo, so it just gets retempoed.
+  Future<void> _endCalibration() async {
     if (state.state != SessionState.calibrating) return;
     state = state.copyWith(state: SessionState.walkingNormal);
-    final spm = state.stepsPerMin;
-    if (spm > 0) {
-      _lastAppliedBpm = spm;
-      if (_activeSound != null) cue.setTempo(spm);
-      state = state.copyWith(bpm: spm);
+    final measured = state.stepsPerMin;
+    final sound = _activeSound;
+    final startBpm = measured > 0 ? measured : _lastAppliedBpm;
+    _lastAppliedBpm = startBpm;
+
+    if (sound != null) {
+      await cue.startCue(bpm: startBpm);
+      await cue.setVolume(await AppPrefs.cueVolume() / 100.0);
+      // Re-sync _lastAppliedBpm to what the cue is actually playing. Without
+      // this, any _applyLiveCadence calls that fired during the startCue await
+      // (state was already walkingNormal) would have advanced _lastAppliedBpm
+      // to the live spm, causing the retempo threshold to never be crossed
+      // and the beat to stay frozen at startBpm.
+      _lastAppliedBpm = cue.bpm;
+      state = state.copyWith(bpm: cue.bpm, cuePlaying: true);
+    } else if (measured > 0) {
+      cue.setTempo(startBpm);
+      state = state.copyWith(bpm: startBpm);
     }
   }
 
@@ -156,22 +173,32 @@ class SessionController extends Notifier<SessionSnapshot> {
     _imuCadence = null;
   }
 
-  /// Begin a walking session. [bpm] is the baseline cadence from calibration
-  /// (steps/min); for M1 it's passed in directly. [sound] is non-null for a
-  /// click beat (cue plays it audibly); null means a music beat is active
-  /// (WalkingScreen owns that audio, so the cue is muted but kept running for
-  /// ring/state sync).
-  Future<void> startSession({double bpm = 100, BeatSound? sound}) async {
+  /// Begin a walking session. [mode] decides whether the FoG model loads and
+  /// runs at all — [WalkMode.cadenceOnly] skips it entirely (cadence tracking
+  /// already runs independently of it). [bpm] is the baseline cadence from
+  /// calibration (steps/min); for M1 it's passed in directly. [sound] is
+  /// non-null for a click beat (cue plays it audibly); null means a music
+  /// beat is active (WalkingScreen owns that audio, so the cue is muted but
+  /// kept running for ring/state sync).
+  Future<void> startSession({
+    required WalkMode mode,
+    double bpm = 100,
+    BeatSound? sound,
+  }) async {
     _window.clear();
     _sinceStep = 0;
     _activeSound = sound;
     _lastAppliedBpm = bpm;
 
-    await model.load();
+    if (mode == WalkMode.fogPrediction) {
+      await model.load();
+    }
 
     // Make sure the sensors this source actually needs are connected (the back
-    // sensor for the real flow; the mock connects instantly). Gating on
-    // expectedLocations avoids waiting on ankles that aren't real hardware.
+    // sensor for the real flow; the mock connects instantly). Needed in both
+    // modes — cadence tracking reads from the same Arduino connection.
+    // Gating on expectedLocations avoids waiting on ankles that aren't real
+    // hardware.
     final ready = sensors.expectedLocations.every(
         (l) => sensors.statusNow.of(l) == SensorConnState.connected);
     if (!ready) {
@@ -179,17 +206,27 @@ class SessionController extends Notifier<SessionSnapshot> {
     }
 
     await cue.init();
-    if (sound != null) await cue.setSound(sound);
-    await cue.startCue(bpm: bpm);
-    await cue.setVolume(sound != null ? await AppPrefs.cueVolume() / 100.0 : 0);
-    await sensors.start();
-    _sampleSub = sensors.samples.listen(_onSample);
+    if (sound != null) {
+      // Click beats have no authored tempo — 100 BPM here is just a
+      // placeholder until calibration measures the real pace, so don't
+      // actually start audio yet (see _endCalibration).
+      await cue.setSound(sound);
+    } else {
+      // Music beats DO have a real, deliberately chosen tempo — play now.
+      await cue.startCue(bpm: bpm);
+      await cue.setVolume(0); // WalkingScreen's own player is the audible one
+    }
 
-    // Beat plays immediately at the chosen tempo; for the first
-    // [_calibrationDuration] we just measure real cadence — no retempo, no
-    // freeze-triggered intervention — so a few seconds of step intervals can
-    // settle before anything reacts to them.
+    if (mode == WalkMode.fogPrediction) {
+      await sensors.start();
+      _sampleSub = sensors.samples.listen(_onSample);
+    }
+
+    // For the first [_calibrationDuration] we just measure real cadence —
+    // no retempo, no freeze-triggered intervention — so a few seconds of
+    // step intervals can settle before anything reacts to them.
     state = state.copyWith(
+      mode: mode,
       state: SessionState.calibrating,
       fogState: FogState.normal,
       fogProbability: 0,
@@ -197,7 +234,7 @@ class SessionController extends Notifier<SessionSnapshot> {
       stepsPerMin: bpm,
       elapsed: Duration.zero,
       freezesEased: 0,
-      cuePlaying: true,
+      cuePlaying: sound == null,
     );
 
     // Walk timer ticks independently of sensor samples, so the elapsed time
@@ -235,8 +272,16 @@ class SessionController extends Notifier<SessionSnapshot> {
 
     if (_window.isFull && _sinceStep >= model.stepSize) {
       _sinceStep = 0;
-      _applyPrediction(model.predict(_window.snapshot()));
+      // Inference runs off-isolate (see BackSensorFogModel) and is awaited
+      // here without blocking — this callback returns immediately, so new
+      // samples keep flowing through _window.add() above while it's pending.
+      unawaited(_predictAndApply(_window.snapshot()));
     }
+  }
+
+  Future<void> _predictAndApply(Float32List snapshot) async {
+    final prediction = await model.predict(snapshot);
+    _applyPrediction(prediction);
   }
 
   void _applyPrediction(FogPrediction p) {

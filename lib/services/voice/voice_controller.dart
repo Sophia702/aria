@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../features/session/summary_screen.dart';
-import '../../features/session/choose_beat_screen.dart';
+import '../../features/session/choose_mode_screen.dart';
 import '../../providers/providers.dart';
 import '../../data/persistence/app_prefs.dart';
 import '../intervention/intervention_manager.dart';
@@ -250,7 +250,7 @@ class VoiceController extends Notifier<VoiceUiState> {
     navigatorKey.currentState?.popUntil((r) => r.isFirst);
     ref.read(navIndexProvider.notifier).set(0);
     navigatorKey.currentState
-        ?.push(MaterialPageRoute(builder: (_) => const ChooseBeatScreen()));
+        ?.push(MaterialPageRoute(builder: (_) => const ChooseModeScreen()));
   }
 
   Future<void> _endWalk() async {

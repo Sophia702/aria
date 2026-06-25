@@ -35,6 +35,7 @@ class HomeScreen extends ConsumerWidget {
     final stats = ref.watch(walkStatsProvider);
 
     return Stack(
+      clipBehavior: Clip.none,
       children: [
         SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md,
@@ -42,102 +43,46 @@ class HomeScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header — logo left, big speech-assist button right ──────
-              // ── Header + greeting, with the big speech button floated at
-              //    top-right so it never stretches the layout (no gap). ──────
-              Stack(
-                clipBehavior: Clip.none,
+              // ── Header + greeting (speech button is floated to the
+              //    screen's top-right corner in the outer Stack below) ──────
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const AriaLogo(size: 36, showWordmark: false),
-                          const SizedBox(width: 8),
-                          Text(
-                            'aria',
-                            style: AppType.displaySerif.copyWith(
-                              fontSize: 24,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Text(
-                        _greeting(l10n),
-                        style: const TextStyle(
-                          fontFamily: kFontFamily,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.inkSoft,
-                        ),
-                      ),
-                      Padding(
-                        // keep long names clear of the floated button
-                        padding: const EdgeInsets.only(right: 96),
-                        child: Text(
-                          name,
-                          style: const TextStyle(
-                            fontFamily: kFontFamily,
-                            fontSize: 42,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.ink,
-                            letterSpacing: -1.5,
-                            height: 1.1,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    top: -2,
-                    right: 0,
-                    child: Semantics(
-                      button: true,
-                      label: 'Speech assist',
-                      child: GestureDetector(
-                        onTap: () {
-                          final notifier =
-                              ref.read(voiceControllerProvider.notifier);
-                          if (voiceEnabled) {
-                            notifier.disable();
-                          } else {
-                            notifier.enable();
-                          }
-                        },
-                        child: Container(
-                          width: 96,
-                          height: 96,
-                          decoration: BoxDecoration(
-                            color: voiceEnabled
-                                ? AppColors.primary
-                                : AppColors.accent,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: (voiceEnabled
-                                        ? AppColors.primary
-                                        : AppColors.accent)
-                                    .withValues(alpha: 0.30),
-                                blurRadius: 16,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                              voiceEnabled
-                                  ? Icons.graphic_eq_rounded
-                                  : Icons.mic_rounded,
-                              color: Colors.white,
-                              size: 46),
-                        ),
-                      ),
+                  const AriaLogo(size: 36, showWordmark: false),
+                  const SizedBox(width: 8),
+                  Text(
+                    'aria',
+                    style: AppType.displaySerif.copyWith(
+                      fontSize: 24,
+                      color: AppColors.ink,
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                _greeting(l10n),
+                style: const TextStyle(
+                  fontFamily: kFontFamily,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.inkSoft,
+                ),
+              ),
+              Padding(
+                // keep long names clear of the floated button
+                padding: const EdgeInsets.only(right: 84),
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    fontFamily: kFontFamily,
+                    fontSize: 42,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                    letterSpacing: -1.5,
+                    height: 1.1,
+                  ),
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(l10n?.readyWalk ?? 'Ready to take a mindful walk?',
@@ -254,6 +199,49 @@ class HomeScreen extends ConsumerWidget {
               // ── Arduino IMU card ──────────────────────────────────────
               _ImuTile(),
             ],
+          ),
+        ),
+        // Speech-assist button pinned to the screen's top-right corner.
+        Positioned(
+          top: 4,
+          right: 12,
+          child: Semantics(
+            button: true,
+            label: 'Speech assist',
+            child: GestureDetector(
+              onTap: () {
+                final notifier = ref.read(voiceControllerProvider.notifier);
+                if (voiceEnabled) {
+                  notifier.disable();
+                } else {
+                  notifier.enable();
+                }
+              },
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: voiceEnabled ? AppColors.primary : AppColors.accent,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (voiceEnabled
+                              ? AppColors.primary
+                              : AppColors.accent)
+                          .withValues(alpha: 0.30),
+                      blurRadius: 16,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                    voiceEnabled
+                        ? Icons.graphic_eq_rounded
+                        : Icons.mic_rounded,
+                    color: Colors.white,
+                    size: 46),
+              ),
+            ),
           ),
         ),
       ],

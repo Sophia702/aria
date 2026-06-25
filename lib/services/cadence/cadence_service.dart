@@ -21,7 +21,10 @@ class CadenceService {
   static const double _threshold = 0.25;   // g above EMA to trigger step
   static const double _hysteresis = 0.15;  // g below EMA to reset trigger (wider band = fewer false resets)
   static const int _deadTimeMs = 400;      // min ms between steps (~150 SPM max, eliminates double-fire)
-  static const int _windowSize = 3;        // inter-step intervals to average
+  static const int _windowSize = 2;        // inter-step intervals to average
+
+  // How often the decay timer recalculates cadence between steps.
+  static const int _decayTickMs = 200;
 
   // ── State ─────────────────────────────────────────────────────────────────
   double _ema = 1.0;
@@ -30,6 +33,7 @@ class CadenceService {
   final Queue<double> _intervals = Queue();
   double _currentCadence = 0;
   int _stepCount = 0;
+  Timer? _decayTimer;
 
   // ── Output ────────────────────────────────────────────────────────────────
   final _stepCtrl = StreamController<void>.broadcast();
@@ -54,12 +58,18 @@ class CadenceService {
     _reset();
     _active = true;
     _sub = _ble.readings.listen(_process);
+    _decayTimer = Timer.periodic(
+      const Duration(milliseconds: _decayTickMs),
+      (_) => _tickDecay(),
+    );
   }
 
   void stop() {
     _active = false;
     _sub?.cancel();
     _sub = null;
+    _decayTimer?.cancel();
+    _decayTimer = null;
   }
 
   void _reset() {
@@ -75,6 +85,25 @@ class CadenceService {
     stop();
     _stepCtrl.close();
     _cadenceCtrl.close();
+  }
+
+  // Recomputes cadence between step events using elapsed time since the last
+  // step. Once the gap exceeds the stored average interval, the implied cadence
+  // starts dropping — making slowdowns visible immediately rather than waiting
+  // for the next step to fire.
+  void _tickDecay() {
+    final last = _lastStep;
+    if (last == null || _intervals.isEmpty) return;
+    final elapsedSec =
+        DateTime.now().difference(last).inMilliseconds / 1000.0;
+    final avgSec =
+        _intervals.fold(0.0, (s, v) => s + v) / _intervals.length;
+    final effectiveSec = max(avgSec, elapsedSec);
+    final cadence = (60.0 / effectiveSec).clamp(0.0, 200.0);
+    if ((cadence - _currentCadence).abs() >= 0.5) {
+      _currentCadence = cadence;
+      _cadenceCtrl.add(_currentCadence);
+    }
   }
 
   // ── Signal processing ─────────────────────────────────────────────────────

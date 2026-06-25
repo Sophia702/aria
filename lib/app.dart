@@ -5,6 +5,7 @@ import 'core/no_stretch_scroll.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/tokens.dart';
 import 'data/persistence/app_prefs.dart';
+import 'features/onboarding/consent_screen.dart';
 import 'features/onboarding/onboarding_flow.dart';
 import 'features/shell/main_shell.dart';
 import 'l10n/app_localizations.dart';
@@ -55,16 +56,22 @@ class _BootState extends State<_Boot> with SingleTickerProviderStateMixin {
   }
 
   Future<void> _run() async {
-    // Start prefs load immediately; hold splash for at least 3.0 s.
+    // Start prefs loads immediately; hold splash for at least 3.0 s.
     final onboardedFuture = AppPrefs.isOnboarded();
+    final consentedFuture = AppPrefs.hasConsented();
     await Future.delayed(const Duration(milliseconds: 3000));
     final onboarded = await onboardedFuture;
+    final consented = await consentedFuture;
     if (!mounted) return;
-    // Push the next screen fading IN over the splash (no reverse-fade to black).
+
+    final postConsent =
+        onboarded ? const MainShell() : const OnboardingFlow();
+    final dest =
+        consented ? postConsent : ConsentScreen(next: postConsent);
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, _, _) =>
-            onboarded ? const MainShell() : const OnboardingFlow(),
+        pageBuilder: (_, _, _) => dest,
         transitionsBuilder: (_, anim, _, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 700),

@@ -38,7 +38,7 @@ class MockFogModel implements FogModel {
   Future<void> load() async {}
 
   @override
-  FogPrediction predict(Float32List window) {
+  Future<FogPrediction> predict(Float32List window) async {
     assert(window.length == windowSize * featureCount,
         'window must be ${windowSize * featureCount} long');
     final phase = _step % _cycle;

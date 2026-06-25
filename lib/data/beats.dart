@@ -30,6 +30,7 @@ class Beat {
 }
 
 const List<Beat> kBeats = [
+  Beat(name: 'Marimba', sub: 'Warm wooden mallet', bpm: 100, kind: BeatKind.click, sound: BeatSound.marimba),
   Beat(name: 'Gentle Waltz', sub: 'Gentle and graceful', bpm: 77, file: 'assets/sounds/Valse Gymnopedie (77 bpm).wav'),
   Beat(name: 'Easy Flow', sub: 'Easy flowing pace', bpm: 80, file: 'assets/sounds/Infinite Perspective (80 bpm).wav'),
   Beat(name: 'Evening Stroll', sub: 'Calm evening walk', bpm: 101, file: 'assets/sounds/Evening (101 bpm).wav'),
@@ -38,7 +39,6 @@ const List<Beat> kBeats = [
   Beat(name: 'Bell', sub: 'Soft chime', bpm: 100, kind: BeatKind.click, sound: BeatSound.bell),
   Beat(name: 'Woodblock', sub: 'Percussive knock', bpm: 100, kind: BeatKind.click, sound: BeatSound.woodblock),
   Beat(name: 'Chiptune', sub: '8-bit bloop', bpm: 100, kind: BeatKind.click, sound: BeatSound.chiptune),
-  Beat(name: 'Marimba', sub: 'Warm wooden mallet', bpm: 100, kind: BeatKind.click, sound: BeatSound.marimba),
   Beat(name: 'Cowbell', sub: 'Metallic clang', bpm: 100, kind: BeatKind.click, sound: BeatSound.cowbell),
   Beat(name: 'Shaker', sub: 'Soft noise burst', bpm: 100, kind: BeatKind.click, sound: BeatSound.shaker),
   Beat(name: 'Sonar', sub: 'Descending ping', bpm: 100, kind: BeatKind.click, sound: BeatSound.sonar),
